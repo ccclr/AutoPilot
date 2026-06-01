@@ -1,0 +1,105 @@
+2026-02-03 20:53:41,528 - __main__ - INFO - Starting Autobahn Continuous CMAB Training
+2026-02-03 20:53:41,528 - __main__ - INFO - metrics_dir=/home/ccclr0302/autobahn/metrics-0 parameters_file=/home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:53:41,528 - cmab.trainer - INFO - Initializing CMAB training loop...
+2026-02-03 20:53:41,528 - cmab.trainer - INFO - Policy: random
+2026-02-03 20:53:41,528 - cmab.trainer - INFO - Iterations: 200
+2026-02-03 20:53:41,529 - cmab.trainer - INFO - No existing metrics file, waiting for epoch 0...
+2026-02-03 20:54:07,401 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:07,402 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 0): /tmp/autobahn_rl_param_update_0.signal
+2026-02-03 20:54:07,402 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:07,402 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:54:14,119 - cmab.trainer - INFO - Iteration 1 : context=[0.45398316 2.723899   2.723899   2.2699158  0.        ] arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 params={'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:14,120 - cmab.trainer - INFO - Iteration 1 reward=0.800445 avg_reward(50)=0.800445 last_metrics=epoch_1_slot_135.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=1.00
+2026-02-03 20:54:14,123 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:14,123 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 1): /tmp/autobahn_rl_param_update_1.signal
+2026-02-03 20:54:14,123 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:14,123 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:54:20,741 - cmab.trainer - INFO - Iteration 2 : context=[18.737705 18.737705 17.488523 19.986885  1.      ] arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=100,k=1 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:20,741 - cmab.trainer - INFO - Iteration 2 reward=1.090030 avg_reward(50)=0.945237 last_metrics=epoch_2_slot_255.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.50
+2026-02-03 20:54:20,744 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:20,744 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 2): /tmp/autobahn_rl_param_update_2.signal
+2026-02-03 20:54:20,744 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:54:20,744 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:54:29,166 - cmab.trainer - INFO - Iteration 3 : context=[39.996307 37.496536 38.74642  38.74642   1.      ] arm=batch_size=500000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=1 params={'batch_size': 500000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:54:29,166 - cmab.trainer - INFO - Iteration 3 reward=0.600086 avg_reward(50)=0.830187 last_metrics=epoch_3_slot_375.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.33
+2026-02-03 20:54:29,171 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:29,171 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 3): /tmp/autobahn_rl_param_update_3.signal
+2026-02-03 20:54:29,171 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:54:29,171 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:54:37,995 - cmab.trainer - INFO - Iteration 4 : context=[16.660532 15.073814 15.073814 15.073814  0.      ] arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=0,k=1 params={'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:54:37,995 - cmab.trainer - INFO - Iteration 4 reward=0.742050 avg_reward(50)=0.808153 last_metrics=epoch_4_slot_495.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.25
+2026-02-03 20:54:37,998 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:37,998 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 4): /tmp/autobahn_rl_param_update_4.signal
+2026-02-03 20:54:37,998 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:37,998 - cmab.trainer - INFO - Waiting for next metrics file...
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+2026-02-03 20:54:45,328 - cmab.policy - INFO - RF Updated: samples=5, MSE=0.022839
+2026-02-03 20:54:45,328 - cmab.trainer - INFO - Iteration 5 : context=[18.67017  18.67017  17.503284 19.837057  0.      ] arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=1 params={'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:45,328 - cmab.trainer - INFO - Iteration 5 reward=1.026436 avg_reward(50)=0.851809 last_metrics=epoch_5_slot_615.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.20
+2026-02-03 20:54:45,331 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:45,332 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 5): /tmp/autobahn_rl_param_update_5.signal
+2026-02-03 20:54:45,332 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:54:45,332 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:54:54,957 - cmab.trainer - INFO - Iteration 6 : context=[65.034904 62.830334 66.13719  66.13719   1.      ] arm=batch_size=500000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 params={'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:54:54,957 - cmab.trainer - INFO - Iteration 6 reward=0.457484 avg_reward(50)=0.786089 last_metrics=epoch_6_slot_735.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.17
+2026-02-03 20:54:55,204 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:54:55,204 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 6): /tmp/autobahn_rl_param_update_6.signal
+2026-02-03 20:54:55,204 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:54:55,204 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:55:05,030 - cmab.trainer - INFO - Iteration 7 : context=[8.280283  7.590259  6.9002357 7.590259  1.       ] arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=1 params={'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 1}
+2026-02-03 20:55:05,031 - cmab.trainer - INFO - Iteration 7 reward=1.096581 avg_reward(50)=0.830445 last_metrics=epoch_7_slot_855.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.14
+2026-02-03 20:55:05,034 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:05,034 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 7): /tmp/autobahn_rl_param_update_7.signal
+2026-02-03 20:55:05,034 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:55:05,034 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:55:12,453 - cmab.trainer - INFO - Iteration 8 : context=[77.1151  72.13993 75.87131 72.13993  1.     ] arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=1 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:55:12,454 - cmab.trainer - INFO - Iteration 8 reward=1.049234 avg_reward(50)=0.857793 last_metrics=epoch_8_slot_975.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.12
+2026-02-03 20:55:12,970 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:12,970 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 8): /tmp/autobahn_rl_param_update_8.signal
+2026-02-03 20:55:12,970 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:55:12,970 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:55:31,821 - cmab.trainer - INFO - Iteration 9 : context=[36.13352  38.625484 39.871468 37.3795    1.      ] arm=batch_size=500000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=3 params={'batch_size': 500000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:55:31,821 - cmab.trainer - INFO - Iteration 9 reward=0.217101 avg_reward(50)=0.786605 last_metrics=epoch_9_slot_1095.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.11
+2026-02-03 20:55:32,156 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:32,157 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 9): /tmp/autobahn_rl_param_update_9.signal
+2026-02-03 20:55:32,157 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:55:32,157 - cmab.trainer - INFO - Waiting for next metrics file...
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+2026-02-03 20:55:45,904 - cmab.policy - INFO - RF Updated: samples=10, MSE=0.010654
+2026-02-03 20:55:45,904 - cmab.trainer - INFO - Iteration 10 : context=[3.3903644 3.6985793 3.3903644 4.0067945 1.       ] arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=1 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:55:45,904 - cmab.trainer - INFO - Iteration 10 reward=0.851826 avg_reward(50)=0.793127 last_metrics=epoch_10_slot_1215.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.10
+2026-02-03 20:55:45,908 - cmab.trainer - INFO - Saved checkpoint: /tmp/cmab_continuous_checkpoints/cmab_checkpoint_10.pkl
+2026-02-03 20:55:45,912 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:45,912 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 10): /tmp/autobahn_rl_param_update_10.signal
+2026-02-03 20:55:45,912 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:55:45,912 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:55:53,834 - cmab.trainer - INFO - Iteration 11 : context=[31.91745  35.337177 34.19727  33.057358  1.      ] arm=batch_size=500000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3 params={'batch_size': 500000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:55:53,834 - cmab.trainer - INFO - Iteration 11 reward=0.289903 avg_reward(50)=0.747380 last_metrics=epoch_11_slot_1335.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.09
+2026-02-03 20:55:54,527 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:54,528 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 11): /tmp/autobahn_rl_param_update_11.signal
+2026-02-03 20:55:54,528 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:55:54,528 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:55:58,968 - cmab.trainer - INFO - Iteration 12 : context=[ 9.39228  9.39228 10.17497 10.17497  0.     ] arm=batch_size=500000,header_size=64,cut_condition_type=1,fast_path_timeout=100,k=3 params={'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:55:58,969 - cmab.trainer - INFO - Iteration 12 reward=0.732166 avg_reward(50)=0.746112 last_metrics=epoch_12_slot_1455.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.08
+2026-02-03 20:55:58,972 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:55:58,972 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 12): /tmp/autobahn_rl_param_update_12.signal
+2026-02-03 20:55:58,972 - cmab.trainer - INFO - Applied params: {'batch_size': 750000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:55:58,972 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:56:01,279 - cmab.trainer - WARNING - Detected abandon signal for epoch 13, using action from epoch 12 for update
+2026-02-03 20:56:01,279 - cmab.trainer - INFO - Iteration 13 : context=[11.22339   11.22339    3.7411296  7.4822593  1.       ] arm=batch_size=500000,header_size=64,cut_condition_type=1,fast_path_timeout=100,k=3 params={'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:56:01,280 - cmab.trainer - INFO - Iteration 13 reward=0.655353 avg_reward(50)=0.739130 last_metrics=epoch_13_slot_1575.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.08
+2026-02-03 20:56:01,311 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:56:01,311 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 13): /tmp/autobahn_rl_param_update_13.signal
+2026-02-03 20:56:01,311 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:56:01,311 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:56:09,621 - cmab.trainer - INFO - Iteration 14 : context=[ 7.5324135  3.7662067  3.7662067 11.29862    1.       ] arm=batch_size=500000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=3 params={'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:56:09,621 - cmab.trainer - INFO - Iteration 14 reward=0.435953 avg_reward(50)=0.717475 last_metrics=epoch_14_slot_1695.json top_arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1 top_ratio=0.07
+2026-02-03 20:56:09,626 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:56:09,626 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 14): /tmp/autobahn_rl_param_update_14.signal
+2026-02-03 20:56:09,627 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:56:09,627 - cmab.trainer - INFO - Waiting for next metrics file...
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+

@@ -1,0 +1,156 @@
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 4 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 10000, 10000, 10000, 10000 tx/s
+ Transaction size: 512 B
+ Execution time: 121 s
+
+ Timeout delay: 5000
+ Header size: 32
+ Max header delay: 200
+ GC depth: 50
+ Sync retry delay: 5000
+ Sync retry nodes: 3
+ Batch size: 500000
+ Max batch delay: 200
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 4
+ Use fast path: True
+ Fast path timeout: 200
+ Use ride share: False
+ Car timeout: 2000
+ Simulate asynchrony: True
+ Asynchrony type: [6]
+ Asynchrony start: [0]
+ Asynchrony duration: [120]
+ Affected nodes: [1]
+ Egress penalty: 0
+ Use fast sync: True
+ Use exponential timeouts: True
+ Cut condition type: 3
+ Aggregation strategy: normal
+ Applied begin: 90
+ Asynchrony node ids per window: [[0]]
+ Asynchrony nodes: [1]
+ Asynchrony regions: [["asia-east2-b"]]
+ Data pollution node ids: []
+ Data pollution prob: 1.0
+ Data pollution strategy: random_scale
+ Egress penalty per node: [200, 0, 0, 0]
+ Epoch slots: 500
+ Window size: 400
+ Faults: 0
+ Nodes: [4]
+ Workers: 1
+ Collocate: True
+ Rate: [40000]
+ Tx size: 512
+ Duration: 120
+ Runs: 1
+ Simulate partition: False
+ Partition start: 5
+ Partition duration: 5
+ Partition nodes: 2
+ Enable hotspot: False
+ Hotspot windows: [[0, 120]]
+ Hotspot regions: [[ ]]
+ Hotspot nodes: [[ ]]
+ Hotspot region rates: [[ ]]
+
+ + HOTSPOT CONFIG:
+ Enable hotspot: False
+
+ + RESULTS:
+ Consensus TPS: 39,926 tx/s
+ Consensus BPS: 20,442,195 B/s
+ Consensus latency: 213 ms
+
+ End-to-end TPS: 39,905 tx/s
+ End-to-end BPS: 20,431,182 B/s
+ End-to-end latency: 248 ms
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 4 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 10000, 10000, 10000, 10000 tx/s
+ Transaction size: 512 B
+ Execution time: 121 s
+
+ Timeout delay: 5000
+ Header size: 32
+ Max header delay: 200
+ GC depth: 50
+ Sync retry delay: 5000
+ Sync retry nodes: 3
+ Batch size: 500000
+ Max batch delay: 200
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 4
+ Use fast path: True
+ Fast path timeout: 200
+ Use ride share: False
+ Car timeout: 2000
+ Simulate asynchrony: True
+ Asynchrony type: [6]
+ Asynchrony start: [0]
+ Asynchrony duration: [120]
+ Affected nodes: [1]
+ Egress penalty: 0
+ Use fast sync: True
+ Use exponential timeouts: True
+ Cut condition type: 3
+ Aggregation strategy: normal
+ Applied begin: 90
+ Asynchrony node ids per window: [[2]]
+ Asynchrony nodes: [1]
+ Asynchrony regions: [["asia-east2-b"]]
+ Data pollution node ids: []
+ Data pollution prob: 1.0
+ Data pollution strategy: random_scale
+ Egress penalty per node: [0, 0, 200, 0]
+ Epoch slots: 500
+ Window size: 400
+ Faults: 0
+ Nodes: [4]
+ Workers: 1
+ Collocate: True
+ Rate: [40000]
+ Tx size: 512
+ Duration: 120
+ Runs: 1
+ Simulate partition: False
+ Partition start: 5
+ Partition duration: 5
+ Partition nodes: 2
+ Enable hotspot: False
+ Hotspot windows: [[0, 120]]
+ Hotspot regions: [[ ]]
+ Hotspot nodes: [[ ]]
+ Hotspot region rates: [[ ]]
+
+ + HOTSPOT CONFIG:
+ Enable hotspot: False
+
+ + RESULTS:
+ Consensus TPS: 39,929 tx/s
+ Consensus BPS: 20,443,550 B/s
+ Consensus latency: 213 ms
+
+ End-to-end TPS: 39,907 tx/s
+ End-to-end BPS: 20,432,539 B/s
+ End-to-end latency: 248 ms
+-----------------------------------------

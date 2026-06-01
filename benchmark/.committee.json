@@ -1,0 +1,72 @@
+{
+    "authorities": {
+        "/edJp0hXrVXup6gkXLrelO0uy6+1RQBqwg+jkWT1P3I=": {
+            "consensus": {
+                "consensus_to_consensus": "10.170.0.2:5000"
+            },
+            "primary": {
+                "primary_to_primary": "10.170.0.2:5001",
+                "worker_to_primary": "10.170.0.2:5002"
+            },
+            "stake": 1,
+            "workers": {
+                "0": {
+                    "primary_to_worker": "10.170.0.2:5003",
+                    "transactions": "10.170.0.2:5004",
+                    "worker_to_worker": "10.170.0.2:5005"
+                }
+            }
+        },
+        "DsoxLur554/QSu7JGyGfbUJplkyoBKWSNbiPhfDAhhk=": {
+            "consensus": {
+                "consensus_to_consensus": "10.170.0.3:5006"
+            },
+            "primary": {
+                "primary_to_primary": "10.170.0.3:5007",
+                "worker_to_primary": "10.170.0.3:5008"
+            },
+            "stake": 1,
+            "workers": {
+                "0": {
+                    "primary_to_worker": "10.170.0.3:5009",
+                    "transactions": "10.170.0.3:5010",
+                    "worker_to_worker": "10.170.0.3:5011"
+                }
+            }
+        },
+        "SBwP9w8mznDyK/pgkrQlpLV3tZWKDEhVTTXC0vJ4Ey0=": {
+            "consensus": {
+                "consensus_to_consensus": "10.128.0.15:5012"
+            },
+            "primary": {
+                "primary_to_primary": "10.128.0.15:5013",
+                "worker_to_primary": "10.128.0.15:5014"
+            },
+            "stake": 1,
+            "workers": {
+                "0": {
+                    "primary_to_worker": "10.128.0.15:5015",
+                    "transactions": "10.128.0.15:5016",
+                    "worker_to_worker": "10.128.0.15:5017"
+                }
+            }
+        },
+        "cGj8IzkEkVBqS+WTBzH2Nb1XFjQvp/nheDRzNezOyIw=": {
+            "consensus": {
+                "consensus_to_consensus": "10.128.0.17:5018"
+            },
+            "primary": {
+                "primary_to_primary": "10.128.0.17:5019",
+                "worker_to_primary": "10.128.0.17:5020"
+            },
+            "stake": 1,
+            "workers": {
+                "0": {
+                    "primary_to_worker": "10.128.0.17:5021",
+                    "transactions": "10.128.0.17:5022",
+                    "worker_to_worker": "10.128.0.17:5023"
+                }
+            }
+        }
+    }
+}

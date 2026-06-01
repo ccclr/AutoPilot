@@ -1,0 +1,92 @@
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 10 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 200,000 tx/s
+ Transaction size: 512 B
+ Execution time: 32 s
+
+ Timeout delay: 1500 ms
+ Header size: 1000 B
+ Max header delay: 200 ms
+ GC depth: 50 round(s)
+ Sync retry delay: 10000 ms
+ Sync retry nodes: 4 node(s)
+ Batch size: 500000 B
+ Max batch delay: 200 ms
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 1
+ Use fast path: True
+ Fast path timeout: 100 ms
+ Use ride share: False
+ Car timeout: 2000 ms
+ Simulate asynchrony: False
+ Asynchrony type: [3]
+ Asynchrony start: [10000]
+ Asynchrony duration: [20000]
+ Affected nodes: [2]
+ Egress penalty: 100 ms
+ Use fast sync: True
+ Use exponential timeouts: True
+
+ + RESULTS:
+ Consensus TPS: 106,358 tx/s
+ Consensus BPS: 54,455,106 B/s
+ Consensus latency: 1,293 ms
+
+ End-to-end TPS: 106,246 tx/s
+ End-to-end BPS: 54,398,105 B/s
+ End-to-end latency: 1,475 ms
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 10 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 200,000 tx/s
+ Transaction size: 512 B
+ Execution time: 25 s
+
+ Timeout delay: 1500 ms
+ Header size: 1000 B
+ Max header delay: 200 ms
+ GC depth: 50 round(s)
+ Sync retry delay: 10000 ms
+ Sync retry nodes: 4 node(s)
+ Batch size: 500000 B
+ Max batch delay: 200 ms
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 1
+ Use fast path: True
+ Fast path timeout: 100 ms
+ Use ride share: False
+ Car timeout: 2000 ms
+ Simulate asynchrony: False
+ Asynchrony type: [3]
+ Asynchrony start: [10000]
+ Asynchrony duration: [20000]
+ Affected nodes: [2]
+ Egress penalty: 100 ms
+ Use fast sync: True
+ Use exponential timeouts: True
+
+ + RESULTS:
+ Consensus TPS: 147,470 tx/s
+ Consensus BPS: 75,504,420 B/s
+ Consensus latency: 1,126 ms
+
+ End-to-end TPS: 147,403 tx/s
+ End-to-end BPS: 75,470,577 B/s
+ End-to-end latency: 1,447 ms
+-----------------------------------------

@@ -1,0 +1,178 @@
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 10 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000 tx/s
+ Transaction size: 512 B
+ Execution time: 122 s
+
+ Timeout delay: 5000
+ Header size: 32
+ Max header delay: 200
+ GC depth: 50
+ Sync retry delay: 1000
+ Sync retry nodes: 3
+ Batch size: 500000
+ Max batch delay: 2000
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 4
+ Use fast path: True
+ Fast path timeout: 200
+ Use ride share: False
+ Car timeout: 2000
+ Simulate asynchrony: False
+ Asynchrony type: [6]
+ Asynchrony start: [0]
+ Asynchrony duration: [120]
+ Affected nodes: [1]
+ Egress penalty: 0
+ Use fast sync: True
+ Use exponential timeouts: True
+ Cut condition type: 7
+ Aggregation strategy: normal
+ Applied begin: 90
+ Asynchrony nodes: []
+ Asynchrony regions: [[]]
+ Data pollution node ids: []
+ Data pollution prob: 1.0
+ Data pollution strategy: random_scale
+ Egress penalty per node: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+ Epoch slots: 100
+ Window size: 80
+ Faults: 0
+ Nodes: [10]
+ Workers: 1
+ Collocate: True
+ Rate: [40000]
+ Tx size: 512
+ Duration: 120
+ Runs: 2
+ Simulate partition: False
+ Partition start: 5
+ Partition duration: 5
+ Partition nodes: 2
+ Enable hotspot: True
+ Hotspot windows: [[0, 120]]
+ Hotspot regions: [["asia-east2-b"]]
+ Hotspot nodes: [[5]]
+ Hotspot region rates: [[0.9]]
+
+ + HOTSPOT CONFIG:
+ Enable hotspot: True
+ Total transactions sent: 2666020
+ Node performances:
+ Node 0: base=4000,  actual=4008.6,  txs=489400
+ Node 1: base=4000,  actual=3993.9,  txs=487600
+ Node 2: base=4000,  actual=411.2,  txs=50200
+ Node 3: base=4000,  actual=404.6,  txs=49400
+ Node 4: base=4000,  actual=398.1,  txs=48600
+ Node 5: base=4000,  actual=396.0,  txs=48340
+ Node 6: base=4000,  actual=395.5,  txs=48280
+ Node 7: base=4000,  actual=3949.7,  txs=482200
+ Node 8: base=4000,  actual=3941.5,  txs=481200
+ Node 9: base=4000,  actual=3938.2,  txs=480800
+
+ + RESULTS:
+ Consensus TPS: 21,787 tx/s
+ Consensus BPS: 11,154,814 B/s
+ Consensus latency: 537 ms
+
+ End-to-end TPS: 21,749 tx/s
+ End-to-end BPS: 11,135,444 B/s
+ End-to-end latency: 1,085 ms
+-----------------------------------------
+
+-----------------------------------------
+ SUMMARY:
+-----------------------------------------
+ + CONFIG:
+ Faults: 0 node(s)
+ Committee size: 10 node(s)
+ Worker(s) per node: 1 worker(s)
+ Collocate primary and workers: True
+ Input rate: 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000 tx/s
+ Transaction size: 512 B
+ Execution time: 122 s
+
+ Timeout delay: 5000
+ Header size: 32
+ Max header delay: 200
+ GC depth: 50
+ Sync retry delay: 1000
+ Sync retry nodes: 3
+ Batch size: 500000
+ Max batch delay: 2000
+ Use optimistic tips: True
+ Use parallel proposals: True
+ k: 4
+ Use fast path: True
+ Fast path timeout: 200
+ Use ride share: False
+ Car timeout: 2000
+ Simulate asynchrony: False
+ Asynchrony type: [6]
+ Asynchrony start: [0]
+ Asynchrony duration: [120]
+ Affected nodes: [1]
+ Egress penalty: 0
+ Use fast sync: True
+ Use exponential timeouts: True
+ Cut condition type: 7
+ Aggregation strategy: normal
+ Applied begin: 90
+ Asynchrony nodes: []
+ Asynchrony regions: [[]]
+ Data pollution node ids: []
+ Data pollution prob: 1.0
+ Data pollution strategy: random_scale
+ Egress penalty per node: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+ Epoch slots: 100
+ Window size: 80
+ Faults: 0
+ Nodes: [10]
+ Workers: 1
+ Collocate: True
+ Rate: [40000]
+ Tx size: 512
+ Duration: 120
+ Runs: 2
+ Simulate partition: False
+ Partition start: 5
+ Partition duration: 5
+ Partition nodes: 2
+ Enable hotspot: True
+ Hotspot windows: [[0, 120]]
+ Hotspot regions: [["asia-east2-b"]]
+ Hotspot nodes: [[5]]
+ Hotspot region rates: [[0.9]]
+
+ + HOTSPOT CONFIG:
+ Enable hotspot: True
+ Total transactions sent: 2665220
+ Node performances:
+ Node 0: base=4000,  actual=4008.1,  txs=489400
+ Node 1: base=4000,  actual=3991.7,  txs=487400
+ Node 2: base=4000,  actual=409.5,  txs=50000
+ Node 3: base=4000,  actual=402.9,  txs=49200
+ Node 4: base=4000,  actual=398.0,  txs=48600
+ Node 5: base=4000,  actual=395.9,  txs=48340
+ Node 6: base=4000,  actual=395.4,  txs=48280
+ Node 7: base=4000,  actual=3947.5,  txs=482000
+ Node 8: base=4000,  actual=3942.5,  txs=481400
+ Node 9: base=4000,  actual=3936.0,  txs=480600
+
+ + RESULTS:
+ Consensus TPS: 21,781 tx/s
+ Consensus BPS: 11,152,095 B/s
+ Consensus latency: 822 ms
+
+ End-to-end TPS: 21,743 tx/s
+ End-to-end BPS: 11,132,641 B/s
+ End-to-end latency: 1,380 ms
+-----------------------------------------

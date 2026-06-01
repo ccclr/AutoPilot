@@ -1,0 +1,5 @@
+boto3==1.16.0
+fabric==2.6.0
+matplotlib
+pyopenssl
+google-cloud-compute

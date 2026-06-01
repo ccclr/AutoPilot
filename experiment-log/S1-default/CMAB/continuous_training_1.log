@@ -1,0 +1,434 @@
+2026-02-03 20:02:59,942 - __main__ - INFO - Starting Autobahn Continuous CMAB Training
+2026-02-03 20:02:59,942 - __main__ - INFO - metrics_dir=/home/ccclr0302/autobahn/metrics-0 parameters_file=/home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:02:59,946 - __main__ - INFO - Loaded CMAB policy from /home/ccclr0302/autobahn-test/experiment-log/cmab_checkpoint_20.pkl
+2026-02-03 20:02:59,946 - cmab.trainer - INFO - Initializing CMAB training loop...
+2026-02-03 20:02:59,946 - cmab.trainer - INFO - Policy: rf_ts
+2026-02-03 20:02:59,946 - cmab.trainer - INFO - Iterations: 200
+2026-02-03 20:02:59,946 - cmab.trainer - INFO - No existing metrics file, waiting for epoch 0...
+2026-02-03 20:03:25,916 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:25,916 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:25,916 - cmab.policy - INFO - Context: [2.4570866  0.28906903 1.445345   2.4570866  0.        ]
+2026-02-03 20:03:25,916 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:25,916 - cmab.policy - INFO - 
+2026-02-03 20:03:25,917 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.703833, 0.703833, 0.685259, 0.685259, 0.638433]
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.291007, 0.291007, 0.318537, 0.318537, 0.295537]
+2026-02-03 20:03:25,917 - cmab.policy - INFO - 
+2026-02-03 20:03:25,917 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, mean=0.703833, std=0.291007
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, mean=0.703833, std=0.291007
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, mean=0.685259, std=0.318537
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, mean=0.685259, std=0.318537
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=3, mean=0.638433, std=0.295537
+2026-02-03 20:03:25,917 - cmab.policy - INFO - 
+2026-02-03 20:03:25,917 - cmab.policy - INFO - Selected tree #8 for Thompson Sampling:
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Tree nodes: 11
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Tree leaves: 6
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Tree shape: (nodes=11, leaves=6, depth=4)
+2026-02-03 20:03:25,917 - cmab.policy - INFO -   Tree feature importances: [0.         0.0028386  0.         0.         0.         0.
+ 0.80755943 0.         0.14132575 0.04827622]
+2026-02-03 20:03:25,919 - cmab.policy - INFO -   Forest feature importances: [0.23071289 0.08424511 0.00961197 0.07685415 0.01810112 0.13459711
+ 0.26139909 0.03840479 0.03111001 0.11496376]
+2026-02-03 20:03:25,919 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:25,919 - cmab.policy - INFO -     #1: arm=batch_size=500000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:03:25,919 - cmab.policy - INFO -     #2: arm=batch_size=750000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, pred=0.790222
+2026-02-03 20:03:25,919 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=100,k=3, pred=0.790222
+2026-02-03 20:03:25,919 - cmab.policy - INFO -     #4: arm=batch_size=750000,header_size=64,cut_condition_type=1,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:03:25,919 - cmab.policy - INFO -     #5: arm=batch_size=500000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, pred=0.790222
+2026-02-03 20:03:25,919 - cmab.policy - INFO - 
+2026-02-03 20:03:25,920 - cmab.policy - INFO -   Found 24 arms with same max prediction (0.790222), randomly selecting one...
+2026-02-03 20:03:25,920 - cmab.policy - INFO - 
+2026-02-03 20:03:25,920 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 (prediction=0.790222)
+2026-02-03 20:03:25,920 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:25,923 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:25,923 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 0): /tmp/autobahn_rl_param_update_0.signal
+2026-02-03 20:03:25,923 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:03:25,923 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:03:31,137 - cmab.trainer - INFO - Iteration 1 : context=[2.4570866  0.28906903 1.445345   2.4570866  0.        ] arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 100, 'k': 3}
+2026-02-03 20:03:31,137 - cmab.trainer - INFO - Iteration 1 reward=1.309784 avg_reward(50)=1.309784 last_metrics=epoch_1_slot_135.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=1.00
+2026-02-03 20:03:31,140 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:31,140 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:31,140 - cmab.policy - INFO - Context: [42.57384  36.89733  39.735588 39.735588  1.      ]
+2026-02-03 20:03:31,140 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:31,140 - cmab.policy - INFO - 
+2026-02-03 20:03:31,140 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.586134, 0.586134, 0.586134, 0.586134, 0.584051]
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.149569, 0.149569, 0.149569, 0.149569, 0.131552]
+2026-02-03 20:03:31,140 - cmab.policy - INFO - 
+2026-02-03 20:03:31,140 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, mean=0.584051, std=0.131552
+2026-02-03 20:03:31,140 - cmab.policy - INFO - 
+2026-02-03 20:03:31,140 - cmab.policy - INFO - Selected tree #3 for Thompson Sampling:
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   Tree depth: 2
+2026-02-03 20:03:31,140 - cmab.policy - INFO -   Tree nodes: 5
+2026-02-03 20:03:31,141 - cmab.policy - INFO -   Tree leaves: 3
+2026-02-03 20:03:31,141 - cmab.policy - INFO -   Tree shape: (nodes=5, leaves=3, depth=2)
+2026-02-03 20:03:31,141 - cmab.policy - INFO -   Tree feature importances: [0.         0.34296004 0.         0.65703996 0.         0.
+ 0.         0.         0.         0.        ]
+2026-02-03 20:03:31,142 - cmab.policy - INFO -   Forest feature importances: [0.23071289 0.08424511 0.00961197 0.07685415 0.01810112 0.13459711
+ 0.26139909 0.03840479 0.03111001 0.11496376]
+2026-02-03 20:03:31,143 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:31,143 - cmab.policy - INFO -     #1: arm=batch_size=750000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=3, pred=0.449564
+2026-02-03 20:03:31,143 - cmab.policy - INFO -     #2: arm=batch_size=500000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, pred=0.449564
+2026-02-03 20:03:31,143 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=1, pred=0.449564
+2026-02-03 20:03:31,143 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=3, pred=0.449564
+2026-02-03 20:03:31,143 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1, pred=0.449564
+2026-02-03 20:03:31,143 - cmab.policy - INFO - 
+2026-02-03 20:03:31,143 - cmab.policy - INFO -   Found 108 arms with same max prediction (0.449564), randomly selecting one...
+2026-02-03 20:03:31,143 - cmab.policy - INFO - 
+2026-02-03 20:03:31,143 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3 (prediction=0.449564)
+2026-02-03 20:03:31,143 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:31,146 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:31,146 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 1): /tmp/autobahn_rl_param_update_1.signal
+2026-02-03 20:03:31,146 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:03:31,146 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:03:34,355 - cmab.trainer - INFO - Iteration 2 : context=[42.57384  36.89733  39.735588 39.735588  1.      ] arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3 params={'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:03:34,355 - cmab.trainer - INFO - Iteration 2 reward=1.007387 avg_reward(50)=1.158586 last_metrics=epoch_2_slot_255.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.50
+2026-02-03 20:03:34,358 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:34,358 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:34,358 - cmab.policy - INFO - Context: [62.00329 56.6117  53.9159  56.6117   0.     ]
+2026-02-03 20:03:34,358 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:34,358 - cmab.policy - INFO - 
+2026-02-03 20:03:34,358 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.616747, 0.616747, 0.616747, 0.616747, 0.614664]
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.194607, 0.194607, 0.194607, 0.194607, 0.181478]
+2026-02-03 20:03:34,358 - cmab.policy - INFO - 
+2026-02-03 20:03:34,358 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, mean=0.616747, std=0.194607
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, mean=0.616747, std=0.194607
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, mean=0.616747, std=0.194607
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, mean=0.616747, std=0.194607
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, mean=0.614664, std=0.181478
+2026-02-03 20:03:34,358 - cmab.policy - INFO - 
+2026-02-03 20:03:34,358 - cmab.policy - INFO - Selected tree #3 for Thompson Sampling:
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   Tree depth: 2
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   Tree nodes: 5
+2026-02-03 20:03:34,358 - cmab.policy - INFO -   Tree leaves: 3
+2026-02-03 20:03:34,359 - cmab.policy - INFO -   Tree shape: (nodes=5, leaves=3, depth=2)
+2026-02-03 20:03:34,359 - cmab.policy - INFO -   Tree feature importances: [0.         0.34296004 0.         0.65703996 0.         0.
+ 0.         0.         0.         0.        ]
+2026-02-03 20:03:34,360 - cmab.policy - INFO -   Forest feature importances: [0.23071289 0.08424511 0.00961197 0.07685415 0.01810112 0.13459711
+ 0.26139909 0.03840479 0.03111001 0.11496376]
+2026-02-03 20:03:34,361 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:34,361 - cmab.policy - INFO -     #1: arm=batch_size=750000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=3, pred=0.449564
+2026-02-03 20:03:34,361 - cmab.policy - INFO -     #2: arm=batch_size=500000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, pred=0.449564
+2026-02-03 20:03:34,361 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=1, pred=0.449564
+2026-02-03 20:03:34,361 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=3, pred=0.449564
+2026-02-03 20:03:34,361 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1, pred=0.449564
+2026-02-03 20:03:34,361 - cmab.policy - INFO - 
+2026-02-03 20:03:34,361 - cmab.policy - INFO -   Found 108 arms with same max prediction (0.449564), randomly selecting one...
+2026-02-03 20:03:34,361 - cmab.policy - INFO - 
+2026-02-03 20:03:34,361 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=500000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=3 (prediction=0.449564)
+2026-02-03 20:03:34,361 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:34,365 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:34,365 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 2): /tmp/autobahn_rl_param_update_2.signal
+2026-02-03 20:03:34,365 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:03:34,365 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:03:42,688 - cmab.trainer - INFO - Iteration 3 : context=[62.00329 56.6117  53.9159  56.6117   0.     ] arm=batch_size=500000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=3 params={'batch_size': 500000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:03:42,688 - cmab.trainer - INFO - Iteration 3 reward=0.432513 avg_reward(50)=0.916561 last_metrics=epoch_3_slot_375.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.33
+2026-02-03 20:03:42,690 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:42,691 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:42,691 - cmab.policy - INFO - Context: [8.662781  7.3300457 7.3300457 7.996413  0.       ]
+2026-02-03 20:03:42,691 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:42,691 - cmab.policy - INFO - 
+2026-02-03 20:03:42,691 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.843163, 0.843163, 0.843163, 0.843163, 0.782354]
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.124632, 0.124632, 0.124632, 0.124632, 0.190518]
+2026-02-03 20:03:42,691 - cmab.policy - INFO - 
+2026-02-03 20:03:42,691 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, mean=0.843163, std=0.124632
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, mean=0.843163, std=0.124632
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, mean=0.843163, std=0.124632
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, mean=0.843163, std=0.124632
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=3, mean=0.782354, std=0.190518
+2026-02-03 20:03:42,691 - cmab.policy - INFO - 
+2026-02-03 20:03:42,691 - cmab.policy - INFO - Selected tree #4 for Thompson Sampling:
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Tree depth: 3
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Tree nodes: 9
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Tree leaves: 5
+2026-02-03 20:03:42,691 - cmab.policy - INFO -   Tree shape: (nodes=9, leaves=5, depth=3)
+2026-02-03 20:03:42,692 - cmab.policy - INFO -   Tree feature importances: [0.16135484 0.09372746 0.         0.         0.         0.73855295
+ 0.         0.         0.         0.00636476]
+2026-02-03 20:03:42,693 - cmab.policy - INFO -   Forest feature importances: [0.23071289 0.08424511 0.00961197 0.07685415 0.01810112 0.13459711
+ 0.26139909 0.03840479 0.03111001 0.11496376]
+2026-02-03 20:03:42,693 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:42,693 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=1.007681
+2026-02-03 20:03:42,693 - cmab.policy - INFO -     #2: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=1, pred=1.007681
+2026-02-03 20:03:42,693 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=1, pred=1.007681
+2026-02-03 20:03:42,693 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3, pred=1.007681
+2026-02-03 20:03:42,693 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3, pred=1.007681
+2026-02-03 20:03:42,694 - cmab.policy - INFO - 
+2026-02-03 20:03:42,694 - cmab.policy - INFO -   Found 36 arms with same max prediction (1.007681), randomly selecting one...
+2026-02-03 20:03:42,694 - cmab.policy - INFO - 
+2026-02-03 20:03:42,694 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=400,k=3 (prediction=1.007681)
+2026-02-03 20:03:42,694 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:42,698 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:42,698 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 3): /tmp/autobahn_rl_param_update_3.signal
+2026-02-03 20:03:42,698 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:03:42,698 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:03:49,516 - cmab.trainer - INFO - Iteration 4 : context=[8.662781  7.3300457 7.3300457 7.996413  0.       ] arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=400,k=3 params={'batch_size': 100000, 'header_size': 32, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:03:49,516 - cmab.trainer - INFO - Iteration 4 reward=1.442563 avg_reward(50)=1.048062 last_metrics=epoch_4_slot_495.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.25
+2026-02-03 20:03:49,519 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:49,519 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:49,519 - cmab.policy - INFO - Context: [69.32319 59.41988 72.6243  75.9254   1.     ]
+2026-02-03 20:03:49,519 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:49,519 - cmab.policy - INFO - 
+2026-02-03 20:03:49,519 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.586134, 0.586134, 0.586134, 0.586134, 0.584051]
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.149569, 0.149569, 0.149569, 0.149569, 0.131552]
+2026-02-03 20:03:49,519 - cmab.policy - INFO - 
+2026-02-03 20:03:49,519 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=0,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:49,519 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=100,k=3, mean=0.586134, std=0.149569
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, mean=0.584051, std=0.131552
+2026-02-03 20:03:49,520 - cmab.policy - INFO - 
+2026-02-03 20:03:49,520 - cmab.policy - INFO - Selected tree #6 for Thompson Sampling:
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   Tree nodes: 11
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   Tree leaves: 6
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   Tree shape: (nodes=11, leaves=6, depth=4)
+2026-02-03 20:03:49,520 - cmab.policy - INFO -   Tree feature importances: [0.44369089 0.         0.         0.         0.         0.00945848
+ 0.         0.05767776 0.         0.48917287]
+2026-02-03 20:03:49,522 - cmab.policy - INFO -   Forest feature importances: [0.23071289 0.08424511 0.00961197 0.07685415 0.01810112 0.13459711
+ 0.26139909 0.03840479 0.03111001 0.11496376]
+2026-02-03 20:03:49,522 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:49,522 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.391722
+2026-02-03 20:03:49,522 - cmab.policy - INFO -     #2: arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.391722
+2026-02-03 20:03:49,522 - cmab.policy - INFO -     #3: arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=1, pred=0.391722
+2026-02-03 20:03:49,522 - cmab.policy - INFO -     #4: arm=batch_size=500000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.391722
+2026-02-03 20:03:49,522 - cmab.policy - INFO -     #5: arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=1, pred=0.391722
+2026-02-03 20:03:49,522 - cmab.policy - INFO - 
+2026-02-03 20:03:49,522 - cmab.policy - INFO -   Found 27 arms with same max prediction (0.391722), randomly selecting one...
+2026-02-03 20:03:49,522 - cmab.policy - INFO - 
+2026-02-03 20:03:49,522 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1 (prediction=0.391722)
+2026-02-03 20:03:49,522 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:49,525 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:49,525 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 4): /tmp/autobahn_rl_param_update_4.signal
+2026-02-03 20:03:49,525 - cmab.trainer - INFO - Applied params: {'batch_size': 750000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:03:49,525 - cmab.trainer - INFO - Waiting for next metrics file...
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+2026-02-03 20:03:54,649 - cmab.policy - INFO - RF Updated: samples=25, MSE=0.018941
+2026-02-03 20:03:54,649 - cmab.trainer - INFO - Iteration 5 : context=[69.32319 59.41988 72.6243  75.9254   1.     ] arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1 params={'batch_size': 750000, 'header_size': 32, 'cut_condition_type': 1, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:03:54,650 - cmab.trainer - INFO - Iteration 5 reward=0.554574 avg_reward(50)=0.949364 last_metrics=epoch_5_slot_615.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.20
+2026-02-03 20:03:54,652 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:54,652 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:03:54,652 - cmab.policy - INFO - Context: [11.597833 10.438049  8.118483  9.278266  0.      ]
+2026-02-03 20:03:54,652 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:03:54,652 - cmab.policy - INFO - 
+2026-02-03 20:03:54,652 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   Mean predictions (top 5 arms): [1.105297, 1.105297, 1.105297, 1.097271, 1.097271]
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.289742, 0.289742, 0.289742, 0.305496, 0.305496]
+2026-02-03 20:03:54,652 - cmab.policy - INFO - 
+2026-02-03 20:03:54,652 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=1, mean=1.097271, std=0.305496
+2026-02-03 20:03:54,652 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=1, mean=1.097271, std=0.305496
+2026-02-03 20:03:54,652 - cmab.policy - INFO - 
+2026-02-03 20:03:54,653 - cmab.policy - INFO - Selected tree #2 for Thompson Sampling:
+2026-02-03 20:03:54,653 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:03:54,653 - cmab.policy - INFO -   Tree nodes: 13
+2026-02-03 20:03:54,653 - cmab.policy - INFO -   Tree leaves: 7
+2026-02-03 20:03:54,653 - cmab.policy - INFO -   Tree shape: (nodes=13, leaves=7, depth=4)
+2026-02-03 20:03:54,653 - cmab.policy - INFO -   Tree feature importances: [0.         0.         0.05625358 0.00077082 0.         0.54123232
+ 0.21131872 0.         0.14489074 0.04553382]
+2026-02-03 20:03:54,654 - cmab.policy - INFO -   Forest feature importances: [0.05988962 0.00980845 0.13802933 0.00664056 0.16595539 0.34056784
+ 0.13609905 0.03392406 0.06766965 0.04141605]
+2026-02-03 20:03:54,655 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:03:54,655 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=3, pred=1.163844
+2026-02-03 20:03:54,655 - cmab.policy - INFO -     #2: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3, pred=1.163844
+2026-02-03 20:03:54,655 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=100,k=3, pred=1.163844
+2026-02-03 20:03:54,655 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=100,k=1, pred=1.163844
+2026-02-03 20:03:54,655 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=1, pred=1.163844
+2026-02-03 20:03:54,655 - cmab.policy - INFO - 
+2026-02-03 20:03:54,655 - cmab.policy - INFO -   Found 24 arms with same max prediction (1.163844), randomly selecting one...
+2026-02-03 20:03:54,655 - cmab.policy - INFO - 
+2026-02-03 20:03:54,655 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=1 (prediction=1.163844)
+2026-02-03 20:03:54,655 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:03:54,659 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:03:54,659 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 5): /tmp/autobahn_rl_param_update_5.signal
+2026-02-03 20:03:54,659 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:03:54,659 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:04:01,779 - cmab.trainer - INFO - Iteration 6 : context=[11.597833 10.438049  8.118483  9.278266  0.      ] arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=1 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 1, 'fast_path_timeout': 400, 'k': 1}
+2026-02-03 20:04:01,779 - cmab.trainer - INFO - Iteration 6 reward=1.004134 avg_reward(50)=0.958493 last_metrics=epoch_6_slot_735.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.17
+2026-02-03 20:04:01,782 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:01,782 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:04:01,782 - cmab.policy - INFO - Context: [37.16874  35.929783 34.690823 37.16874   1.      ]
+2026-02-03 20:04:01,782 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:04:01,782 - cmab.policy - INFO - 
+2026-02-03 20:04:01,782 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   Mean predictions (top 5 arms): [0.761528, 0.761528, 0.760519, 0.757597, 0.757597]
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.252834, 0.252834, 0.253881, 0.251244, 0.251244]
+2026-02-03 20:04:01,782 - cmab.policy - INFO - 
+2026-02-03 20:04:01,782 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=3, mean=0.761528, std=0.252834
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=3, mean=0.761528, std=0.252834
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=3, mean=0.760519, std=0.253881
+2026-02-03 20:04:01,782 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=1, mean=0.757597, std=0.251244
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=1, mean=0.757597, std=0.251244
+2026-02-03 20:04:01,783 - cmab.policy - INFO - 
+2026-02-03 20:04:01,783 - cmab.policy - INFO - Selected tree #3 for Thompson Sampling:
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   Tree depth: 5
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   Tree nodes: 13
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   Tree leaves: 7
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   Tree shape: (nodes=13, leaves=7, depth=5)
+2026-02-03 20:04:01,783 - cmab.policy - INFO -   Tree feature importances: [0.         0.         0.05177134 0.         0.19920327 0.48813998
+ 0.26088541 0.         0.         0.        ]
+2026-02-03 20:04:01,785 - cmab.policy - INFO -   Forest feature importances: [0.05988962 0.00980845 0.13802933 0.00664056 0.16595539 0.34056784
+ 0.13609905 0.03392406 0.06766965 0.04141605]
+2026-02-03 20:04:01,785 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:04:01,785 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.810646
+2026-02-03 20:04:01,785 - cmab.policy - INFO -     #2: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=3, pred=0.810646
+2026-02-03 20:04:01,785 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=3, pred=0.810646
+2026-02-03 20:04:01,785 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=1, pred=0.810646
+2026-02-03 20:04:01,785 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3, pred=0.810646
+2026-02-03 20:04:01,785 - cmab.policy - INFO - 
+2026-02-03 20:04:01,785 - cmab.policy - INFO -   Found 36 arms with same max prediction (0.810646), randomly selecting one...
+2026-02-03 20:04:01,785 - cmab.policy - INFO - 
+2026-02-03 20:04:01,785 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1 (prediction=0.810646)
+2026-02-03 20:04:01,785 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:01,790 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:04:01,790 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 6): /tmp/autobahn_rl_param_update_6.signal
+2026-02-03 20:04:01,790 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:04:01,790 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:04:11,215 - cmab.trainer - INFO - Iteration 7 : context=[37.16874  35.929783 34.690823 37.16874   1.      ] arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1 params={'batch_size': 100000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:04:11,216 - cmab.trainer - INFO - Iteration 7 reward=0.777869 avg_reward(50)=0.932689 last_metrics=epoch_7_slot_855.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.14
+2026-02-03 20:04:11,218 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:11,218 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:04:11,218 - cmab.policy - INFO - Context: [20.451607 18.747305 17.895155 18.747305  0.      ]
+2026-02-03 20:04:11,218 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:04:11,219 - cmab.policy - INFO - 
+2026-02-03 20:04:11,219 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Mean predictions (top 5 arms): [1.105297, 1.105297, 1.105297, 1.097271, 1.097271]
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.289742, 0.289742, 0.289742, 0.305496, 0.305496]
+2026-02-03 20:04:11,219 - cmab.policy - INFO - 
+2026-02-03 20:04:11,219 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=32,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=1, mean=1.105297, std=0.289742
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=1, mean=1.097271, std=0.305496
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=1, mean=1.097271, std=0.305496
+2026-02-03 20:04:11,219 - cmab.policy - INFO - 
+2026-02-03 20:04:11,219 - cmab.policy - INFO - Selected tree #10 for Thompson Sampling:
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Tree nodes: 11
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Tree leaves: 6
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Tree shape: (nodes=11, leaves=6, depth=4)
+2026-02-03 20:04:11,219 - cmab.policy - INFO -   Tree feature importances: [0.37133244 0.         0.29910452 0.         0.         0.
+ 0.         0.         0.03957055 0.28999249]
+2026-02-03 20:04:11,221 - cmab.policy - INFO -   Forest feature importances: [0.05988962 0.00980845 0.13802933 0.00664056 0.16595539 0.34056784
+ 0.13609905 0.03392406 0.06766965 0.04141605]
+2026-02-03 20:04:11,221 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:04:11,221 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.590664
+2026-02-03 20:04:11,221 - cmab.policy - INFO -     #2: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=100,k=1, pred=0.590664
+2026-02-03 20:04:11,221 - cmab.policy - INFO -     #3: arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=100,k=1, pred=0.590664
+2026-02-03 20:04:11,221 - cmab.policy - INFO -     #4: arm=batch_size=750000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=0.590664
+2026-02-03 20:04:11,221 - cmab.policy - INFO -     #5: arm=batch_size=500000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=1, pred=0.590664
+2026-02-03 20:04:11,222 - cmab.policy - INFO - 
+2026-02-03 20:04:11,222 - cmab.policy - INFO -   Found 54 arms with same max prediction (0.590664), randomly selecting one...
+2026-02-03 20:04:11,222 - cmab.policy - INFO - 
+2026-02-03 20:04:11,222 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=750000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1 (prediction=0.590664)
+2026-02-03 20:04:11,222 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:11,225 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:04:11,225 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 7): /tmp/autobahn_rl_param_update_7.signal
+2026-02-03 20:04:11,225 - cmab.trainer - INFO - Applied params: {'batch_size': 750000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:04:11,226 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:04:36,092 - cmab.trainer - INFO - Iteration 8 : context=[20.451607 18.747305 17.895155 18.747305  0.      ] arm=batch_size=750000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=1 params={'batch_size': 750000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 1}
+2026-02-03 20:04:36,092 - cmab.trainer - INFO - Iteration 8 reward=0.170117 avg_reward(50)=0.837368 last_metrics=epoch_8_slot_975.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.12
+2026-02-03 20:04:36,095 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:36,095 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:04:36,095 - cmab.policy - INFO - Context: [2.9990366 2.749117  2.499197  2.749117  0.       ]
+2026-02-03 20:04:36,095 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:04:36,095 - cmab.policy - INFO - 
+2026-02-03 20:04:36,095 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   Mean predictions (top 5 arms): [1.132110, 1.132110, 1.132110, 1.132110, 1.132110]
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.214658, 0.214658, 0.214658, 0.214658, 0.214658]
+2026-02-03 20:04:36,095 - cmab.policy - INFO - 
+2026-02-03 20:04:36,095 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.132110, std=0.214658
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=3, mean=1.132110, std=0.214658
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.132110, std=0.214658
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.132110, std=0.214658
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3, mean=1.132110, std=0.214658
+2026-02-03 20:04:36,095 - cmab.policy - INFO - 
+2026-02-03 20:04:36,095 - cmab.policy - INFO - Selected tree #10 for Thompson Sampling:
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:04:36,095 - cmab.policy - INFO -   Tree nodes: 11
+2026-02-03 20:04:36,096 - cmab.policy - INFO -   Tree leaves: 6
+2026-02-03 20:04:36,096 - cmab.policy - INFO -   Tree shape: (nodes=11, leaves=6, depth=4)
+2026-02-03 20:04:36,096 - cmab.policy - INFO -   Tree feature importances: [0.37133244 0.         0.29910452 0.         0.         0.
+ 0.         0.         0.03957055 0.28999249]
+2026-02-03 20:04:36,097 - cmab.policy - INFO -   Forest feature importances: [0.05988962 0.00980845 0.13802933 0.00664056 0.16595539 0.34056784
+ 0.13609905 0.03392406 0.06766965 0.04141605]
+2026-02-03 20:04:36,098 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:04:36,098 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:04:36,098 - cmab.policy - INFO -     #2: arm=batch_size=500000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:04:36,098 - cmab.policy - INFO -     #3: arm=batch_size=750000,header_size=64,cut_condition_type=1,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:04:36,098 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:04:36,098 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=3, pred=0.790222
+2026-02-03 20:04:36,098 - cmab.policy - INFO - 
+2026-02-03 20:04:36,098 - cmab.policy - INFO -   Found 18 arms with same max prediction (0.790222), randomly selecting one...
+2026-02-03 20:04:36,098 - cmab.policy - INFO - 
+2026-02-03 20:04:36,098 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=500000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=3 (prediction=0.790222)
+2026-02-03 20:04:36,098 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:04:36,231 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:04:36,231 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 8): /tmp/autobahn_rl_param_update_8.signal
+2026-02-03 20:04:36,231 - cmab.trainer - INFO - Applied params: {'batch_size': 500000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:04:36,231 - cmab.trainer - INFO - Waiting for next metrics file...
+2026-02-03 20:05:06,113 - cmab.trainer - INFO - Iteration 9 : context=[2.9990366 2.749117  2.499197  2.749117  0.       ] arm=batch_size=500000,header_size=128,cut_condition_type=3,fast_path_timeout=0,k=3 params={'batch_size': 500000, 'header_size': 128, 'cut_condition_type': 3, 'fast_path_timeout': 0, 'k': 3}
+2026-02-03 20:05:06,113 - cmab.trainer - INFO - Iteration 9 reward=0.231576 avg_reward(50)=0.770058 last_metrics=epoch_9_slot_1095.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.11
+2026-02-03 20:05:06,116 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:05:06,116 - cmab.policy - INFO - SELECT ARM - Detailed Prediction Analysis
+2026-02-03 20:05:06,116 - cmab.policy - INFO - Context: [4.1907797 3.8684123 3.5460446 3.8684123 0.       ]
+2026-02-03 20:05:06,116 - cmab.policy - INFO - Number of trees in forest: 10
+2026-02-03 20:05:06,116 - cmab.policy - INFO - 
+2026-02-03 20:05:06,116 - cmab.policy - INFO - Prediction statistics across all trees:
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   Mean predictions (top 5 arms): [1.071751, 1.071751, 1.071751, 1.071751, 1.071751]
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   Std predictions (top 5 arms): [0.319603, 0.319603, 0.319603, 0.319603, 0.319603]
+2026-02-03 20:05:06,116 - cmab.policy - INFO - 
+2026-02-03 20:05:06,116 - cmab.policy - INFO - Top 5 arms by mean prediction:
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   #1: arm=batch_size=100000,header_size=128,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.071751, std=0.319603
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   #2: arm=batch_size=100000,header_size=128,cut_condition_type=3,fast_path_timeout=400,k=3, mean=1.071751, std=0.319603
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   #3: arm=batch_size=100000,header_size=64,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.071751, std=0.319603
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   #4: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=400,k=3, mean=1.071751, std=0.319603
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3, mean=1.071751, std=0.319603
+2026-02-03 20:05:06,116 - cmab.policy - INFO - 
+2026-02-03 20:05:06,116 - cmab.policy - INFO - Selected tree #6 for Thompson Sampling:
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   Tree depth: 4
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   Tree nodes: 13
+2026-02-03 20:05:06,116 - cmab.policy - INFO -   Tree leaves: 7
+2026-02-03 20:05:06,117 - cmab.policy - INFO -   Tree shape: (nodes=13, leaves=7, depth=4)
+2026-02-03 20:05:06,117 - cmab.policy - INFO -   Tree feature importances: [0.         0.         0.         0.         0.41956731 0.23512026
+ 0.         0.26006138 0.02251389 0.06273715]
+2026-02-03 20:05:06,118 - cmab.policy - INFO -   Forest feature importances: [0.05988962 0.00980845 0.13802933 0.00664056 0.16595539 0.34056784
+ 0.13609905 0.03392406 0.06766965 0.04141605]
+2026-02-03 20:05:06,119 - cmab.policy - INFO -   Top 5 predictions from this tree:
+2026-02-03 20:05:06,119 - cmab.policy - INFO -     #1: arm=batch_size=100000,header_size=32,cut_condition_type=1,fast_path_timeout=0,k=1, pred=1.281074
+2026-02-03 20:05:06,119 - cmab.policy - INFO -     #2: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=0,k=1, pred=1.281074
+2026-02-03 20:05:06,119 - cmab.policy - INFO -     #3: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=1, pred=1.281074
+2026-02-03 20:05:06,119 - cmab.policy - INFO -     #4: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3, pred=1.281074
+2026-02-03 20:05:06,119 - cmab.policy - INFO -     #5: arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=1, pred=1.281074
+2026-02-03 20:05:06,119 - cmab.policy - INFO - 
+2026-02-03 20:05:06,119 - cmab.policy - INFO -   Found 36 arms with same max prediction (1.281074), randomly selecting one...
+2026-02-03 20:05:06,119 - cmab.policy - INFO - 
+2026-02-03 20:05:06,119 - cmab.policy - INFO - ✓ SELECTED ARM: batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3 (prediction=1.281074)
+2026-02-03 20:05:06,119 - cmab.policy - INFO - ================================================================================
+2026-02-03 20:05:06,123 - cmab.trainer - INFO - Updated parameters file: /home/ccclr0302/autobahn-test/benchmark/.parameters-0.json
+2026-02-03 20:05:06,123 - cmab.trainer - INFO - 🚩 Created RL parameter update signal file (epoch 9): /tmp/autobahn_rl_param_update_9.signal
+2026-02-03 20:05:06,123 - cmab.trainer - INFO - Applied params: {'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:05:06,123 - cmab.trainer - INFO - Waiting for next metrics file...
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:    0.0s finished
+2026-02-03 20:05:18,567 - cmab.policy - INFO - RF Updated: samples=30, MSE=0.011341
+2026-02-03 20:05:18,568 - cmab.trainer - INFO - Iteration 10 : context=[4.1907797 3.8684123 3.5460446 3.8684123 0.       ] arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=400,k=3 params={'batch_size': 100000, 'header_size': 64, 'cut_condition_type': 3, 'fast_path_timeout': 400, 'k': 3}
+2026-02-03 20:05:18,568 - cmab.trainer - INFO - Iteration 10 reward=1.203059 avg_reward(50)=0.813358 last_metrics=epoch_10_slot_1215.json top_arm=batch_size=100000,header_size=64,cut_condition_type=3,fast_path_timeout=100,k=3 top_ratio=0.10
+2026-02-03 20:05:18,724 - cmab.trainer - INFO - Saved checkpoint: /tmp/cmab_continuous_checkpoints/cmab_checkpoint_10.pkl
