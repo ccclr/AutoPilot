@@ -116,7 +116,7 @@ class Bench:
             'sudo apt-get -y install build-essential',
             'sudo apt-get -y install cmake',
             'sudo apt-get -y install clang git curl',
-            'sudo apt-get install -y iperf3',
+            'sudo apt-get install -y iperf3 python3-pip python3-venv',
 
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
             'source /home/ccclr0302/.cargo/env',
@@ -258,10 +258,11 @@ class Bench:
 
     def _install_agent_dependencies(self, hosts, collocate):
         """
-        Install Agent python dependencies on local controller and all remote hosts.
+        Install Agent python dependencies into an isolated venv on local and remote hosts.
         """
         ips = self._flatten_hosts(hosts, collocate)
-        Print.info('Installing Agent Python dependencies on local and remote machines...')
+        venv_python = CommandMaker.agent_venv_python()
+        Print.info(f'Installing Agent Python dependencies into venv: {CommandMaker.AGENT_VENV_PATH}')
 
         local_requirements = os.path.abspath(join('..', 'Agent', 'requirements.txt'))
         if not os.path.isfile(local_requirements):
@@ -270,28 +271,13 @@ class Bench:
                 FileNotFoundError(local_requirements)
             )
 
-        # Local machine (benchmark driver)
-        subprocess.run(
-            [
-                'python3', '-m', 'pip', 'install',
-                '--break-system-packages',
-                '-r', local_requirements
-            ],
-            check=True
-        )
+        CommandMaker.ensure_agent_venv(local_requirements)
+        Print.info(f'Local Agent venv ready: {venv_python}')
 
-        # Remote benchmark nodes
-        remote_cmd = [
-            'sudo apt-get update',
-            'sudo apt-get -y install python3-pip',
-            'python3 -m pip install --break-system-packages --upgrade pip',
-            (
-                f'(cd {self.settings.repo_name} && '
-                'python3 -m pip install --break-system-packages -r Agent/requirements.txt)'
-            ),
-        ]
+        remote_cmd = CommandMaker.remote_agent_venv_setup_cmds(self.settings.repo_name)
         g = Group(*ips, user=self.settings.username, connect_kwargs=self.connect)
         g.run(' && '.join(remote_cmd), hide=True)
+        Print.info(f'Remote Agent venv ready on {len(ips)} host(s): {venv_python}')
 
     def _update(self, hosts, collocate):
         ips = self._flatten_hosts(hosts, collocate)
@@ -301,7 +287,7 @@ class Bench:
         )
 
         cmd = [
-            f'(cd {self.settings.repo_name} && git fetch origin {self.settings.branch})',
+            f'(cd {self.settings.repo_name} && git fetch origin {self.settings.branch}:{self.settings.branch})',
             f'(cd {self.settings.repo_name} && git reset --hard origin/{self.settings.branch})',
             'source /home/ccclr0302/.cargo/env',
             f'(cd {self.settings.repo_name} && {CommandMaker.compile()})',
@@ -393,9 +379,6 @@ class Bench:
                 'hotspot_regions': getattr(bench_parameters, 'hotspot_regions', []),
                 'hotspot_region_rates': getattr(bench_parameters, 'hotspot_region_rates', []),
             }
-            # When hotspot_regions specified: resolve to node ids per window.
-            # hotspot_nodes[w] is either an int (same count for every region) or a list
-            # of per-region counts aligned with hotspot_regions[w].
             hotspot_regions = hotspot_config.get('hotspot_regions', [])
             if hotspot_regions and node_regions and region_based_hotspot:
                 Print.info('Hotspot selection (region-based):')
@@ -511,17 +494,18 @@ class Bench:
 
         # Start controller for RL training.
         Print.info('Starting RL controllers...')
-        # for i, address in enumerate(primary_addresses):
-        #     host = Committee.ip(address)
-        #     cmd = CommandMaker.run_controller(
-        #         node_index=i,
-        #         repo_name=self.settings.repo_name,
-        #         log_dir=PathMaker.logs_path(),
-        #         parameters_file="/home/ccclr0302/.parameters.json"
-        #     )
-        #     log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
-        #     self._background_run(host, cmd, log_file)
-        # sleep(2)
+        for i, address in enumerate(primary_addresses):
+            host = Committee.ip(address)
+            cmd = CommandMaker.run_controller(
+                node_index=i,
+                repo_name=self.settings.repo_name,
+                log_dir=PathMaker.logs_path(),
+                parameters_file="/home/ccclr0302/.parameters.json",
+                python_bin=CommandMaker.agent_venv_python(),
+            )
+            log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
+            self._background_run(host, cmd, log_file)
+        sleep(2)
 
         # Now that primaries are running and sockets are created, start metrics collectors.
         Print.info('Starting metrics collectors...')
@@ -535,7 +519,8 @@ class Bench:
                 node_index=i,
                 repo_name=self.settings.repo_name,
                 log_dir=PathMaker.logs_path(),
-                parameters_file=PathMaker.parameters_file()
+                parameters_file=PathMaker.parameters_file(),
+                python_bin=CommandMaker.agent_venv_python(),
             )
             log_file = join(PathMaker.logs_path(), f'metrics_collector-{i}.log')
             self._background_run(host, cmd, log_file)
@@ -572,16 +557,6 @@ class Bench:
         # Wait for all transactions to be processed.
         duration = bench_parameters.duration
         for i in progress_bar(range(20), prefix=f'Running benchmark ({duration} sec):'):
-            #tick_size = ceil(duration / 20)
-            #print(tick_size, i, bench_parameters.partition_start, bench_parameters.simulate_partition)
-            #if bench_parameters.simulate_partition and i*tick_size == bench_parameters.partition_start:
-            #    print('simulating partition')
-            #    self._simulate_partition(bench_parameters, committee, faults)
-            
-            #if bench_parameters.simulate_partition and i*tick_size == bench_parameters.partition_start + bench_parameters.partition_duration:
-            #    print('deleting partition')
-            #    self._delete_partition(bench_parameters, committee, faults)
-
             sleep(ceil(duration / 20))
         self.kill(hosts=hosts, delete_logs=False)
 
@@ -635,19 +610,6 @@ class Bench:
                 g = Group(*partition_ips, user=self.settings.username, connect_kwargs=self.connect)
                 g.run(' && '.join(cmd), hide=True) 
 
-       
-        #hosts = committee.ips()
-        #cmd = ['sudo iptables -F']
-        #cmd = ['sudo tc qdisc del dev ens4 root']
-        #g = Group(*partition_ips, user='neilgiridharan', connect_kwargs=self.connect)
-        #g.run(' && '.join(cmd), hide=True) 
-        
-        #for i, address in enumerate(committee.primary_addresses(faults)):
-        #    host = Committee.ip(address)
-        #    cmd = 'sudo iptables -F'
-        #    log_file = PathMaker.primary_log_file(i)
-        #    self._background_run(host, cmd, log_file)
-
     def _logs(self, committee, faults):
         # Delete local logs (if any).
         cmd = CommandMaker.clean_logs()
@@ -678,37 +640,6 @@ class Bench:
                 PathMaker.primary_log_file(i), 
                 local=PathMaker.primary_log_file(i)
             )
-
-        # Download full remote logs directory from each host.
-        # for host in sorted(set(committee.ips())):
-        #     safe_host = host.replace('.', '-')
-        #     local_host_dir = join(PathMaker.logs_path(), f'remote-{safe_host}')
-        #     os.makedirs(local_host_dir, exist_ok=True)
-
-        #     remote_tar = f'/tmp/autobahn-logs-{safe_host}.tar.gz'
-        #     local_tar = join(local_host_dir, 'logs.tar.gz')
-        #     c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)
-
-        #     try:
-        #         c.run(
-        #             f'tar -czf {remote_tar} -C . {PathMaker.logs_path()} 2>/dev/null || '
-        #             f'tar -czf {remote_tar} --files-from /dev/null',
-        #             hide=True
-        #         )
-        #         c.get(remote_tar, local=local_tar)
-        #         subprocess.run(['tar', '-xzf', local_tar, '-C', local_host_dir], check=True)
-        #     except Exception as e:
-        #         Print.warn(f'Failed to download full logs from {host}: {e}')
-        #     finally:
-        #         try:
-        #             c.run(f'rm -f {remote_tar}', hide=True, warn=True)
-        #         except Exception:
-        #             pass
-        #         try:
-        #             if os.path.exists(local_tar):
-        #                 os.remove(local_tar)
-        #         except OSError:
-        #             pass
 
         # Parse logs and return the parser.
         Print.info('Parsing logs and computing performance...')

@@ -114,6 +114,10 @@ class LocalBench:
         
         try:
             Print.info('Setting up testbed...')
+            local_requirements = os.path.abspath(join('..', 'Agent', 'requirements.txt'))
+            if os.path.isfile(local_requirements):
+                Print.info(f'Preparing Agent venv at {CommandMaker.AGENT_VENV_PATH}...')
+                CommandMaker.ensure_agent_venv(local_requirements)
             nodes, rate = self.nodes[0], self.rate[0]
 
             # Cleanup all files.
@@ -215,12 +219,14 @@ class LocalBench:
             self._wait_for_tcp_listeners(worker_listener_addresses, timeout_sec=60, label='workers')
 
             # Start controller for RL training.
+            agent_python = CommandMaker.agent_venv_python()
             for i, address in enumerate(primary_addresses):
                 cmd = CommandMaker.run_controller(
                     node_index=i,
                     repo_name='autobahn',
                     log_dir=os.path.abspath(PathMaker.logs_path()),
-                    parameters_file=os.path.abspath(PathMaker.local_parameters_file(i))
+                    parameters_file=os.path.abspath(PathMaker.local_parameters_file(i)),
+                    python_bin=agent_python,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(cmd, log_file)
@@ -237,7 +243,8 @@ class LocalBench:
                     node_index=i,
                     repo_name='autobahn',  # Use relative path from benchmark directory
                     log_dir=os.path.abspath(PathMaker.logs_path()),
-                    parameters_file=os.path.abspath(PathMaker.local_parameters_file(0))
+                    parameters_file=os.path.abspath(PathMaker.local_parameters_file(0)),
+                    python_bin=agent_python,
                 )
                 log_file = join(PathMaker.logs_path(), f'metrics_collector-{i}.log')
                 self._background_run(cmd, log_file)

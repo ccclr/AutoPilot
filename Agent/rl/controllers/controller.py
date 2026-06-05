@@ -163,7 +163,7 @@ class AutobahnController:
         try:
             # Start training script in continuous mode
             cmd = [
-                "python3",
+                sys.executable,
                 "/home/ccclr0302/autobahn/Agent/rl/train_cmab_continuous.py",
                 "--node-index", str(self.node_index),
                 "--metrics-dir", str(self.metrics_dir),
