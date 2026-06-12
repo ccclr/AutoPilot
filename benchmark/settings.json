@@ -5,9 +5,9 @@
     },
     "port": 5000,
     "repo": {
-        "name": "autobahn",
-        "url": "https://github.com/ccclr/autobahn.git",
-        "branch": "test_in_distributed"
+        "name": "autopilot",
+        "url": "git@github.com:ccclr/AutoPilot.git",
+        "branch": "master"
     },
     "project_id": "bright-meridian-486618-b3",
     "username": "ccclr0302",
