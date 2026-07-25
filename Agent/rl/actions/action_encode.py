@@ -29,12 +29,16 @@ class ActionCodec:
             self.cut_condition_type_values = [3]
             self.fast_path_timeout_ms_values = [200]
             self.parallel_proposals_values = [1]
+            # Inclusive continuous bounds used by GP-BO mixed search.
+            self.fast_path_timeout_ms_bounds = (200, 200)
             # self.use_optimistic_tips_values = [True]
         else:
             self.batch_size_values = [100000, 500000]  # 100KB to 800KB
             self.header_size_values = [32, 64]  # 32 to 256 bytes
             self.cut_condition_type_values = [1, 3, 4]  # 1 to 2f+1 (reasonable cut conditions)
-            self.fast_path_timeout_ms_values = [0, 100, 300]  # 0 to 200ms
+            # Discrete grid kept for CMAB; GP-BO uses continuous bounds below.
+            self.fast_path_timeout_ms_values = [0, 100, 300]
+            self.fast_path_timeout_ms_bounds = (0, 300)  # continuous ms interval for GP-BO
             self.parallel_proposals_values = [1, 4]  # 1 to 3 parallel proposals
             # self.use_optimistic_tips_values = [True, False]  # True or False
 

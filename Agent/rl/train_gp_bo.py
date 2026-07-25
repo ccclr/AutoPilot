@@ -2,16 +2,19 @@
 """
 Continuous GP-BO Training Script for Autopilot System.
 
-Reuses CMABTrainer (metrics wait / reward credit / parameter write). Only the
-policy kernel is GP-UCB Bayesian Optimization.
+Mixed action space:
+  - discrete: batch_size, header_size, cut_condition_type, k
+  - continuous: fast_path_timeout_ms in ActionCodec.fast_path_timeout_ms_bounds
+
+Reuses CMABTrainer for metrics wait / reward credit / parameter write.
 """
 
 import argparse
 import logging
 
 from actions.action_encode import ActionCodec
-from cmab import ArmCatalog, CMABTrainer, ContextBuilder
-from gp_bo import GPBOPolicy
+from cmab import CMABTrainer, ContextBuilder
+from gp_bo import GPBOPolicy, MixedActionSpace, MixedArmCatalog
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,34 +33,46 @@ def main():
     parser.add_argument("--policy", type=str, default="gp_bo", choices=["gp_bo", "default"])
     parser.add_argument("--context-mode", type=str, default="dynamic", choices=["dynamic", "full"])
     parser.add_argument("--kappa", type=float, default=2.0, help="UCB exploration coefficient")
-    parser.add_argument("--max-arms", type=int, default=None)
+    parser.add_argument(
+        "--timeout-grid-size",
+        type=int,
+        default=31,
+        help="Grid resolution for continuous fast_path_timeout search",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
     args = parser.parse_args()
 
-    logger.info("Starting Autopilot Continuous GP-BO Training")
+    logger.info("Starting Autopilot Continuous GP-BO Training (mixed timeout)")
     logger.info(
-        "metrics_dir=%s parameters_file=%s kappa=%.3f",
+        "metrics_dir=%s parameters_file=%s kappa=%.3f timeout_grid=%d",
         args.metrics_dir,
         args.parameters_file,
         args.kappa,
+        args.timeout_grid_size,
     )
 
-    # Reuse discrete value sets from ActionCodec; "default" shrinks to one arm.
     codec_policy = "default" if args.policy == "default" else "rf_ts"
     codec = ActionCodec(policy=codec_policy)
-    arm_catalog = ArmCatalog(codec=codec, max_arms=args.max_arms, seed=args.seed)
-    arms = arm_catalog.list_arms()
-    feature_dim = len(arm_catalog.decode_arm(arms[0])) if arms else 0
+    mixed_space = MixedActionSpace(codec=codec)
+    arm_catalog = MixedArmCatalog(mixed_space)
+    logger.info(
+        "Mixed space: %d discrete bases, timeout in [%.1f, %.1f] ms",
+        len(mixed_space.list_bases()),
+        mixed_space.timeout_lo,
+        mixed_space.timeout_hi,
+    )
 
     policy = GPBOPolicy(
-        arms,
-        feature_dim=feature_dim,
+        feature_dim=5,
         policy_name="gp_bo",
         kappa=args.kappa,
         random_state=args.seed,
+        mixed_space=mixed_space,
+        timeout_grid_size=args.timeout_grid_size,
+        min_samples_to_fit=5,
     )
     if args.resume_from:
         policy.load(args.resume_from)
