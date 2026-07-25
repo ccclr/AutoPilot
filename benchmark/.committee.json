@@ -1,70 +1,70 @@
 {
     "authorities": {
-        "7XPy3zNjkJPms8H7p17dj15hvet29OEdChMzRyp6FO4=": {
+        "Dhao8nR6K4jrNeoh/VWJ+y8DEn0vdWngu7C82WkkQRM=": {
             "consensus": {
-                "consensus_to_consensus": "127.0.0.1:3012"
+                "consensus_to_consensus": "10.170.0.9:5018"
             },
             "primary": {
-                "primary_to_primary": "127.0.0.1:3013",
-                "worker_to_primary": "127.0.0.1:3014"
+                "primary_to_primary": "10.170.0.9:5019",
+                "worker_to_primary": "10.170.0.9:5020"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "127.0.0.1:3015",
-                    "transactions": "127.0.0.1:3016",
-                    "worker_to_worker": "127.0.0.1:3017"
+                    "primary_to_worker": "10.170.0.9:5021",
+                    "transactions": "10.170.0.9:5022",
+                    "worker_to_worker": "10.170.0.9:5023"
                 }
             }
         },
-        "AfGkQXyH22jjlF0rvSFD2871yRoJ0pQoWlnLpz8I3pQ=": {
+        "DunK43pFWGUxq2u44zCV0F/mzn4A6gibg5FotsTE+3Q=": {
             "consensus": {
-                "consensus_to_consensus": "127.0.0.1:3006"
+                "consensus_to_consensus": "10.170.0.3:5006"
             },
             "primary": {
-                "primary_to_primary": "127.0.0.1:3007",
-                "worker_to_primary": "127.0.0.1:3008"
+                "primary_to_primary": "10.170.0.3:5007",
+                "worker_to_primary": "10.170.0.3:5008"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "127.0.0.1:3009",
-                    "transactions": "127.0.0.1:3010",
-                    "worker_to_worker": "127.0.0.1:3011"
+                    "primary_to_worker": "10.170.0.3:5009",
+                    "transactions": "10.170.0.3:5010",
+                    "worker_to_worker": "10.170.0.3:5011"
                 }
             }
         },
-        "UvmX9Yq0k125OMHO7bCV3cYU9QMKJseXZgLNHKTvLfA=": {
+        "Tp5SncUqo8jQzUgZmnFx+YDZG8Q8BHM6hLXx7xMj0eI=": {
             "consensus": {
-                "consensus_to_consensus": "127.0.0.1:3000"
+                "consensus_to_consensus": "10.170.0.2:5000"
             },
             "primary": {
-                "primary_to_primary": "127.0.0.1:3001",
-                "worker_to_primary": "127.0.0.1:3002"
+                "primary_to_primary": "10.170.0.2:5001",
+                "worker_to_primary": "10.170.0.2:5002"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "127.0.0.1:3003",
-                    "transactions": "127.0.0.1:3004",
-                    "worker_to_worker": "127.0.0.1:3005"
+                    "primary_to_worker": "10.170.0.2:5003",
+                    "transactions": "10.170.0.2:5004",
+                    "worker_to_worker": "10.170.0.2:5005"
                 }
             }
         },
-        "mcCe2tqMkSvcSH7oXdYiNKHrKJEu7omvPAkRJnhUWyQ=": {
+        "bEJqMmZRgXI2/CyHKKw7Ey/EulbIHWs1UpcdJQPRD10=": {
             "consensus": {
-                "consensus_to_consensus": "127.0.0.1:3018"
+                "consensus_to_consensus": "10.128.0.2:5012"
             },
             "primary": {
-                "primary_to_primary": "127.0.0.1:3019",
-                "worker_to_primary": "127.0.0.1:3020"
+                "primary_to_primary": "10.128.0.2:5013",
+                "worker_to_primary": "10.128.0.2:5014"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "127.0.0.1:3021",
-                    "transactions": "127.0.0.1:3022",
-                    "worker_to_worker": "127.0.0.1:3023"
+                    "primary_to_worker": "10.128.0.2:5015",
+                    "transactions": "10.128.0.2:5016",
+                    "worker_to_worker": "10.128.0.2:5017"
                 }
             }
         }

@@ -89,7 +89,7 @@ class Bench:
         return env
 
     def install(self):
-        EXCLUDED_ZONES = ['asia-east2-a'] 
+        EXCLUDED_ZONES = ['us-central1-c'] 
         manager = InstanceManager.make()
         settings = manager.settings
         hosts_dict = manager.hosts()
@@ -157,7 +157,7 @@ class Bench:
         """Returns (hosts, node_regions). node_regions[i] = region for node i (collocate only)."""
         if bench_parameters.collocate:
             nodes = max(bench_parameters.nodes)
-            EXCLUDED_ZONES = ['us-central1-c']
+            EXCLUDED_ZONES = []
             hosts_dict = self.manager.hosts()
             filtered_hosts = {
                 region: ips for region, ips in hosts_dict.items()

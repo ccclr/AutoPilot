@@ -169,7 +169,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 120,
+        'duration': 60,
         'runs': 1,
 
         # Unused5
