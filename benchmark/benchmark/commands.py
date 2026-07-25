@@ -32,9 +32,30 @@ class CommandMaker:
         venv_path = CommandMaker.AGENT_VENV_PATH
         venv_pip = CommandMaker.agent_venv_pip()
         if not os.path.isdir(venv_path):
-            subprocess.run(['python3', '-m', 'venv', venv_path], check=True)
-        subprocess.run([venv_pip, 'install', '--upgrade', 'pip'], check=True)
-        subprocess.run([venv_pip, 'install', '-r', requirements_file], check=True)
+            subprocess.run(
+                ['python3', '-m', 'venv', venv_path],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        try:
+            subprocess.run(
+                [venv_pip, 'install', '-q', '--upgrade', 'pip'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                [venv_pip, 'install', '-q', '-r', requirements_file],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            detail = (e.stderr or e.stdout or str(e)).strip()
+            raise RuntimeError(
+                f'Failed to install Agent dependencies into {venv_path}: {detail}'
+            ) from e
         return CommandMaker.agent_venv_python()
 
     @staticmethod
@@ -43,11 +64,11 @@ class CommandMaker:
         venv_path = CommandMaker.AGENT_VENV_PATH
         venv_pip = CommandMaker.agent_venv_pip()
         return [
-            'sudo apt-get update',
-            'sudo apt-get -y install python3-pip python3-venv',
+            'sudo apt-get update -qq',
+            'sudo apt-get -y -qq install python3-pip python3-venv',
             f'test -d {venv_path} || python3 -m venv {venv_path}',
-            f'{venv_pip} install --upgrade pip',
-            f'(cd {repo_name} && {venv_pip} install -r Agent/requirements.txt)',
+            f'{venv_pip} install -q --upgrade pip',
+            f'(cd {repo_name} && {venv_pip} install -q -r Agent/requirements.txt)',
         ]
 
     @staticmethod
@@ -179,7 +200,14 @@ class CommandMaker:
         return cmd
 
     @staticmethod
-    def run_controller(node_index=None, repo_name=None, log_dir=None, parameters_file=None, python_bin=None):
+    def run_controller(
+        node_index=None,
+        repo_name=None,
+        log_dir=None,
+        parameters_file=None,
+        python_bin=None,
+        resume_from=None,
+    ):
         """Generate command to run controller as a background process"""
         controller_path = f'/home/ccclr0302/{repo_name}/Agent/rl/controllers/controller.py'
         # update_parameters_path = f'/home/ccclr0302/{repo_name}/Agent/update_parameters_{node_index}.json'
@@ -189,4 +217,6 @@ class CommandMaker:
         cmd += f' --node-index {node_index}'
         cmd += f' --log-dir {log_dir}'
         cmd += f' --parameters-file {parameters_file}'
+        if resume_from:
+            cmd += f' --resume-from {resume_from}'
         return cmd

@@ -169,11 +169,9 @@ class AutopilotController:
                 "--metrics-dir", str(self.metrics_dir),
                 "--parameters-file", str(self.parameters_file),
                 "--checkpoint-dir", "/home/ccclr0302/checkpoints",
-                "--resume-from", "/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl",
-                # "--resume-from", str(self.resume_from),
-                # "--num_iterations", 300,
-                # "--checkpoint_freq", 10
             ]
+            if self.resume_from:
+                cmd.extend(["--resume-from", str(self.resume_from)])
 
             logger.info(f"Starting continuous training with command: {' '.join(cmd)}")
 
@@ -293,6 +291,7 @@ def main():
     print(f"⚙️  Parameters file: {args.parameters_file}")
     print(f"🏷️  Node index: {args.node_index}")
     print(f"📝 Log dir: {args.log_dir}")
+    print(f"🔁 Resume from: {args.resume_from}")
 
     # Logger will be initialized by AutopilotController
 

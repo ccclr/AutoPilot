@@ -39,6 +39,9 @@ def local(ctx, debug=False):
         'tx_size': 512,
         'duration': 60,
 
+        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
+        'cmab_resume_from': None,
+
         # Unused
         'simulate_partition': False,
         'partition_start': 5,
@@ -170,6 +173,10 @@ def remote(ctx, debug=False):
         'tx_size': 512,
         'duration': 60,
         'runs': 1,
+
+        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
+        # Example: '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl'
+        'cmab_resume_from': '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl',
 
         # Unused5
         'simulate_partition': False,

@@ -271,13 +271,23 @@ class Bench:
                 FileNotFoundError(local_requirements)
             )
 
-        CommandMaker.ensure_agent_venv(local_requirements)
-        Print.info(f'Local Agent venv ready: {venv_python}')
+        try:
+            CommandMaker.ensure_agent_venv(local_requirements)
+            Print.info(f'Local Agent dependency install succeeded: {venv_python}')
+        except Exception as e:
+            Print.error(BenchError('Local Agent dependency install failed', e))
+            raise
 
         remote_cmd = CommandMaker.remote_agent_venv_setup_cmds(self.settings.repo_name)
         g = Group(*ips, user=self.settings.username, connect_kwargs=self.connect)
-        g.run(' && '.join(remote_cmd), hide=True)
-        Print.info(f'Remote Agent venv ready on {len(ips)} host(s): {venv_python}')
+        try:
+            g.run(' && '.join(remote_cmd), hide=True)
+            Print.info(
+                f'Remote Agent dependency install succeeded on {len(ips)} host(s): {venv_python}'
+            )
+        except Exception as e:
+            Print.error(BenchError('Remote Agent dependency install failed', e))
+            raise
 
     def _update(self, hosts, collocate):
         ips = self._flatten_hosts(hosts, collocate)
@@ -494,6 +504,9 @@ class Bench:
 
         # Start controller for RL training.
         Print.info('Starting RL controllers...')
+        resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
+        if resume_from:
+            Print.info(f'CMAB resume-from: {resume_from}')
         for i, address in enumerate(primary_addresses):
             host = Committee.ip(address)
             cmd = CommandMaker.run_controller(
@@ -502,6 +515,7 @@ class Bench:
                 log_dir=PathMaker.logs_path(),
                 parameters_file="/home/ccclr0302/.parameters.json",
                 python_bin=CommandMaker.agent_venv_python(),
+                resume_from=resume_from,
             )
             log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
             self._background_run(host, cmd, log_file)
