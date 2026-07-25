@@ -2,7 +2,6 @@
 import sys
 import inspect
 from collections import namedtuple
-# sys.path.insert(0, "/home/ccclr0302/envs/autobahn/lib/python3.12/site-packages")
 
 if not hasattr(inspect, "getargspec"):
     ArgSpec = namedtuple("ArgSpec", "args varargs keywords defaults")
@@ -39,6 +38,9 @@ def local(ctx, debug=False):
         'rate': 50000,
         'tx_size': 512,
         'duration': 60,
+
+        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
+        'cmab_resume_from': None,
 
         # Unused
         'simulate_partition': False,
@@ -169,8 +171,12 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 120,
+        'duration': 60,
         'runs': 1,
+
+        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
+        # Example: '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl'
+        'cmab_resume_from': '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl',
 
         # Unused5
         'simulate_partition': False,

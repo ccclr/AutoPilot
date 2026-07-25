@@ -131,7 +131,7 @@ class LocalBench:
             Print.info('Cleaning up previous metrics and latency matrices...')
             # Note: clean_metrics with node_id parameter is not needed here since we're cleaning shared files
             for i in range(nodes):
-                cmd = CommandMaker.clean_metrics('autobahn', i)
+                cmd = CommandMaker.clean_metrics('autopilot', i)
                 subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
             print('past cleanup')
@@ -220,13 +220,17 @@ class LocalBench:
 
             # Start controller for RL training.
             agent_python = CommandMaker.agent_venv_python()
+            resume_from = getattr(self.bench_parameters, 'cmab_resume_from', None)
+            if resume_from:
+                Print.info(f'CMAB resume-from: {resume_from}')
             for i, address in enumerate(primary_addresses):
                 cmd = CommandMaker.run_controller(
                     node_index=i,
-                    repo_name='autobahn',
+                    repo_name='autopilot',
                     log_dir=os.path.abspath(PathMaker.logs_path()),
                     parameters_file=os.path.abspath(PathMaker.local_parameters_file(i)),
                     python_bin=agent_python,
+                    resume_from=resume_from,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(cmd, log_file)
@@ -241,7 +245,7 @@ class LocalBench:
                     epoch_slots=epoch_slots,
                     window_size=window_size,
                     node_index=i,
-                    repo_name='autobahn',  # Use relative path from benchmark directory
+                    repo_name='autopilot',  # Use relative path from benchmark directory
                     log_dir=os.path.abspath(PathMaker.logs_path()),
                     parameters_file=os.path.abspath(PathMaker.local_parameters_file(0)),
                     python_bin=agent_python,
@@ -253,7 +257,7 @@ class LocalBench:
             # Fix socket permissions to allow metrics_collector to connect.
             Print.info('Fixing socket permissions for metrics collection...')
             for node_idx, address in enumerate(primary_addresses):
-                socket_path = f'/tmp/autobahn_core_{node_idx}.sock'
+                socket_path = f'/tmp/autopilot_core_{node_idx}.sock'
                 cmd = f'chmod 666 {socket_path} 2>/dev/null || true'
                 try:
                     subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)

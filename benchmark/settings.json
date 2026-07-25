@@ -6,8 +6,8 @@
     "port": 5000,
     "repo": {
         "name": "autopilot",
-        "url": "git@github.com:ccclr/AutoPilot.git",
-        "branch": "master"
+        "url": "git@github.com:ccclr/autopilot.git",
+        "branch": "test"
     },
     "project_id": "bright-meridian-486618-b3",
     "username": "ccclr0302",

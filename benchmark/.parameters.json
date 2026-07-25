@@ -1,0 +1,51 @@
+{
+    "affected_nodes": [
+        1
+    ],
+    "aggregation_strategy": "normal",
+    "applied_begin": 95,
+    "asynchrony_duration": [
+        120
+    ],
+    "asynchrony_nodes": [],
+    "asynchrony_regions": [
+        []
+    ],
+    "asynchrony_start": [
+        0
+    ],
+    "asynchrony_type": [
+        6
+    ],
+    "batch_size": 500000,
+    "car_timeout": 2000,
+    "cut_condition_type": 3,
+    "data_pollution_node_ids": [],
+    "data_pollution_prob": 1.0,
+    "data_pollution_strategy": "random_scale",
+    "egress_penalty": 0,
+    "egress_penalty_per_node": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "epoch_slots": 100,
+    "fast_path_timeout": 100,
+    "gc_depth": 50,
+    "header_size": 32,
+    "k": 4,
+    "max_batch_delay": 5000,
+    "max_header_delay": 5000,
+    "simulate_asynchrony": false,
+    "sync_retry_delay": 5000,
+    "sync_retry_nodes": 3,
+    "timeout_delay": 5000,
+    "use_exponential_timeouts": true,
+    "use_fast_path": true,
+    "use_fast_sync": true,
+    "use_optimistic_tips": true,
+    "use_parallel_proposals": true,
+    "use_ride_share": false,
+    "window_size": 80
+}

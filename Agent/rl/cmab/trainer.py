@@ -124,7 +124,7 @@ class CMABTrainer:
             # 3) fallback => current selected arm
             use_arm = action_by_epoch.get(reward_epoch) if reward_epoch is not None else None
             if reward_epoch is not None:
-                abandon_signal = Path(f"/tmp/autobahn_rl_param_abandon_{reward_epoch-1}.signal")
+                abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
                 if abandon_signal.exists():
                     logger.warning(
                         "Detected abandon signal for epoch %s, using previous iteration action for update",
@@ -165,7 +165,7 @@ class CMABTrainer:
             self.reward_history.append(reward)
 
             if reward_epoch is not None:
-                abandon_signal = Path(f"/tmp/autobahn_rl_param_abandon_{reward_epoch-1}.signal")
+                abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
                 if not abandon_signal.exists():
                     last_arm = use_arm
             
@@ -435,11 +435,8 @@ class CMABTrainer:
 
 
     def _get_param_socket_path(self) -> str:
-        # env_path = os.environ.get("RL_PARAM_SOCKET_PATH") or os.environ.get("AUTOBAHN_RL_PARAM_SOCKET_PATH")
-        # if env_path:
-        #     return env_path
         node_index = self.node_index
-        return f"/tmp/autobahn_rl_param_{node_index}.sock"
+        return f"/tmp/autopilot_rl_param_{node_index}.sock"
 
     def _send_param_update_socket(self, epoch: Optional[int]) -> bool:
         socket_path = self._get_param_socket_path()

@@ -90,9 +90,9 @@ def get_controller_logger(node_index: Optional[int] = None, log_dir: Optional[st
     """Create a new controller logger instance"""
     return ControllerLogger(log_dir=log_dir, node_index=node_index)
 
-class AutobahnController:
+class AutopilotController:
     """
-    Autobahn system controller, responsible for applying parameters and retrieving metrics
+    Autopilot system controller, responsible for applying parameters and retrieving metrics
     """
 
     def __init__(
@@ -144,7 +144,7 @@ class AutobahnController:
         self.training_active = False
 
     def _start_continuous_training(self):
-        """Start embedded continuous CMAB training that runs throughout the Autobahn execution"""
+        """Start embedded continuous CMAB training that runs throughout the Autopilot execution"""
         if self._is_training_active():
             logger.info("Continuous training already active")
             return
@@ -164,16 +164,14 @@ class AutobahnController:
             # Start training script in continuous mode
             cmd = [
                 sys.executable,
-                "/home/ccclr0302/autobahn/Agent/rl/train_cmab_continuous.py",
+                "/home/ccclr0302/autopilot/Agent/rl/train_cmab_continuous.py",
                 "--node-index", str(self.node_index),
                 "--metrics-dir", str(self.metrics_dir),
                 "--parameters-file", str(self.parameters_file),
                 "--checkpoint-dir", "/home/ccclr0302/checkpoints",
-                "--resume-from", "/home/ccclr0302/autobahn/checkpoints/cmab_checkpoint_120.pkl",
-                # "--resume-from", str(self.resume_from),
-                # "--num_iterations", 300,
-                # "--checkpoint_freq", 10
             ]
+            if self.resume_from:
+                cmd.extend(["--resume-from", str(self.resume_from)])
 
             logger.info(f"Starting continuous training with command: {' '.join(cmd)}")
 
@@ -187,7 +185,7 @@ class AutobahnController:
                     text=True,
                     bufsize=1,
                     universal_newlines=True,
-                    cwd="/home/ccclr0302/autobahn/Agent/rl"
+                    cwd="/home/ccclr0302/autopilot/Agent/rl"
                     # Don't use start_new_session=True - monitor thread will wait for it
                 )
 
@@ -272,7 +270,7 @@ def main():
     import sys
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Autobahn RL Controller Server')
+    parser = argparse.ArgumentParser(description='Autopilot RL Controller Server')
     parser.add_argument('--metrics-dir', type=str, required=True,
                        help='Directory for metrics files')
     parser.add_argument('--parameters-file', type=str, required=True,
@@ -288,17 +286,18 @@ def main():
 
     args = parser.parse_args()
 
-    print("🚀 Starting Autobahn RL Controller Server")
+    print("🚀 Starting Autopilot RL Controller Server")
     print(f"📊 Metrics dir: {args.metrics_dir}")
     print(f"⚙️  Parameters file: {args.parameters_file}")
     print(f"🏷️  Node index: {args.node_index}")
     print(f"📝 Log dir: {args.log_dir}")
+    print(f"🔁 Resume from: {args.resume_from}")
 
-    # Logger will be initialized by AutobahnController
+    # Logger will be initialized by AutopilotController
 
     # Initialize controller
     try:
-        controller = AutobahnController(
+        controller = AutopilotController(
             metrics_dir=args.metrics_dir,
             parameters_file=args.parameters_file,
             node_index=args.node_index,

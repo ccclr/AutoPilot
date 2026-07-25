@@ -693,10 +693,10 @@ static METRICS_LOGGER: std::sync::OnceLock<Mutex<Option<MetricsLogger>>> =
     std::sync::OnceLock::new();
 
 /// Global parameter update signal file path for core to notify workers
-pub static PARAMETER_UPDATE_SIGNAL_FILE: &str = "/tmp/autobahn_param_update.signal";
+pub static PARAMETER_UPDATE_SIGNAL_FILE: &str = "/tmp/autopilot_param_update.signal";
 
 /// Signal file path for RL agent to notify core about parameter updates
-pub static RL_PARAMETER_UPDATE_SIGNAL_FILE: &str = "/tmp/autobahn_rl_param_update";
+pub static RL_PARAMETER_UPDATE_SIGNAL_FILE: &str = "/tmp/autopilot_rl_param_update";
 
 pub fn init_metrics_logger(log_dir: &str) {
     init_metrics_logger_with_node_index(log_dir, None);

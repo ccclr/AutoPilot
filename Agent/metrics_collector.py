@@ -1782,7 +1782,7 @@ class MetricsCollector:
         try:
             # Use fixed socket path (no node index needed)
             # First try environment variable (set by Rust), then fallback to fixed path
-            socket_path = os.environ.get('RUST_STATE_SOCKET_PATH', '/tmp/autobahn_state_server.sock')
+            socket_path = os.environ.get('RUST_STATE_SOCKET_PATH', '/tmp/autopilot_state_server.sock')
             
             print(f"🔌 Using socket path: {socket_path}")
             
@@ -1790,7 +1790,7 @@ class MetricsCollector:
             if not os.path.exists(socket_path):
                 print(f"⚠️ Socket file does not exist: {socket_path}")
                 try:
-                    available = [f for f in os.listdir('/tmp') if 'autobahn_state_server' in f]
+                    available = [f for f in os.listdir('/tmp') if 'autopilot_state_server' in f]
                     print(f"   Available sockets in /tmp: {available}")
                 except Exception:
                     pass
@@ -2005,7 +2005,7 @@ def main(epoch_slots: int = 20, window_size: int = 5, committed_slot: Optional[i
 
     # Get node index for socket path - use the node_index passed via command line
     current_node_idx = node_index if node_index is not None else 0
-    core_socket_path = f"/tmp/autobahn_core_{current_node_idx}.sock"
+    core_socket_path = f"/tmp/autopilot_core_{current_node_idx}.sock"
 
     # Connect to core's socket server (retry with backoff)
     core_socket = None
@@ -2265,9 +2265,9 @@ if __name__ == "__main__":
         i += 1
 
     print(f"📊 Metrics Collection: h={epoch_slots}, j={window_size}, slot={committed_slot}, node={node_index}")
-    print(f"🚀 METRICS_COLLECTOR_STARTED_BY_AUTOBahn: PID={os.getpid()}, ARGS={sys.argv}")
+    print(f"🚀 METRICS_COLLECTOR_STARTED_BY_AUTOPILOT: PID={os.getpid()}, ARGS={sys.argv}")
     logger.info(f"📊 Metrics Collection: h={epoch_slots}, j={window_size}, slot={committed_slot}, node={node_index}")
-    logger.info(f"🚀 METRICS_COLLECTOR_STARTED_BY_AUTOBahn: PID={os.getpid()}, ARGS={sys.argv}")
+    logger.info(f"🚀 METRICS_COLLECTOR_STARTED_BY_AUTOPILOT: PID={os.getpid()}, ARGS={sys.argv}")
 
     # Validate required parameters
     if log_dir is None:

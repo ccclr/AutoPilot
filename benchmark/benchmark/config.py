@@ -251,6 +251,17 @@ class BenchParameters:
             self.duration = int(json['duration'])
 
             self.runs = int(json['runs']) if 'runs' in json else 1
+
+            # Optional CMAB checkpoint path passed to RL controller (--resume-from).
+            # None / empty / false => start training from scratch.
+            resume_from = json.get('cmab_resume_from', None)
+            if resume_from in (None, '', False):
+                self.cmab_resume_from = None
+            else:
+                if not isinstance(resume_from, str):
+                    raise ConfigError('cmab_resume_from must be a string path or null')
+                self.cmab_resume_from = resume_from
+
             self.simulate_partition = bool(json['simulate_partition'])
 
             self.partition_nodes = int(json['partition_nodes'])
