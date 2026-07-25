@@ -530,7 +530,7 @@ class Bench:
         Print.info('Fixing socket permissions for metrics collection...')
         for i, address in enumerate(primary_addresses):
             host = Committee.ip(address)
-            socket_path = f'/tmp/autobahn_core_{i}.sock'
+            socket_path = f'/tmp/autopilot_core_{i}.sock'
             cmd = f'chmod 666 {socket_path} 2>/dev/null || true'
             try:
                 c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)

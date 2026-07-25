@@ -4144,7 +4144,7 @@ impl Core {
                     signal_epoch, last_slot
                 );
                 let abandon_signal =
-                    format!("/tmp/autobahn_rl_param_abandon_{}.signal", signal_epoch);
+                    format!("/tmp/autopilot_rl_param_abandon_{}.signal", signal_epoch);
                 match std::fs::File::create(&abandon_signal) {
                     Ok(_) => info!(
                         "🚫 Abandoning param update for epoch {}, created {}",
@@ -5182,12 +5182,12 @@ impl Core {
 
         // Clean up any stale socket file for this node from previous runs
         info!(
-            "🧽 Performing socket cleanup for node {} (socket: /tmp/autobahn_core_{}.sock)...",
+            "🧽 Performing socket cleanup for node {} (socket: /tmp/autopilot_core_{}.sock)...",
             self.node_index, self.node_index
         );
 
         // Use node index for socket path
-        let socket_path = format!("/tmp/autobahn_core_{}.sock", self.node_index);
+        let socket_path = format!("/tmp/autopilot_core_{}.sock", self.node_index);
 
         // Remove existing socket file if it exists (with better error handling)
         info!("🧹 Removing any existing socket file: {}", socket_path);
@@ -5374,7 +5374,7 @@ impl Core {
         use tokio::io::{AsyncBufReadExt, BufReader};
         use tokio::net::UnixListener;
 
-        let socket_path = format!("/tmp/autobahn_rl_param_{}.sock", self.node_index);
+        let socket_path = format!("/tmp/autopilot_rl_param_{}.sock", self.node_index);
         info!(
             "🧽 Performing RL param socket cleanup for node {} (socket: {})...",
             self.node_index, socket_path
@@ -5538,7 +5538,7 @@ impl Core {
 impl Drop for Core {
     fn drop(&mut self) {
         // Clean up the Unix socket file when the Core is dropped
-        let socket_path = format!("/tmp/autobahn_core_{}.sock", self.node_index);
+        let socket_path = format!("/tmp/autopilot_core_{}.sock", self.node_index);
         info!("🧹 Cleaning up socket file: {}", socket_path);
         match std::fs::remove_file(&socket_path) {
             Ok(()) => info!("✅ Successfully cleaned up socket file: {}", socket_path),
@@ -5569,7 +5569,7 @@ impl Drop for Core {
             }
         }
 
-        let rl_param_socket_path = format!("/tmp/autobahn_rl_param_{}.sock", self.node_index);
+        let rl_param_socket_path = format!("/tmp/autopilot_rl_param_{}.sock", self.node_index);
         info!(
             "🧹 Cleaning up RL param socket file: {}",
             rl_param_socket_path

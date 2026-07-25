@@ -2,7 +2,6 @@
 import sys
 import inspect
 from collections import namedtuple
-# sys.path.insert(0, "/home/ccclr0302/envs/autobahn/lib/python3.12/site-packages")
 
 if not hasattr(inspect, "getargspec"):
     ArgSpec = namedtuple("ArgSpec", "args varargs keywords defaults")

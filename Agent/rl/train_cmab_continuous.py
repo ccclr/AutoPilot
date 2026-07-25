@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Continuous CMAB Training Script for Autobahn System.
+Continuous CMAB Training Script for Autopilot System.
 """
 
 import argparse
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Continuous CMAB Training for Autobahn")
-    parser.add_argument("--metrics-dir", type=str, default="/home/ccclr0302/autobahn/metrics")
+    parser = argparse.ArgumentParser(description="Continuous CMAB Training for Autopilot")
+    parser.add_argument("--metrics-dir", type=str, default="/home/ccclr0302/autopilot/metrics")
     parser.add_argument("--parameters-file", type=str, default="/home/ccclr0302/.parameters.json")
     parser.add_argument("--checkpoint-dir", type=str, default="/tmp/cmab_continuous_checkpoints")
     parser.add_argument("--num-iterations", type=int, default=200)
@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--node-index", type=int, default=0)
     args = parser.parse_args()
 
-    logger.info("Starting Autobahn Continuous CMAB Training")
+    logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info("metrics_dir=%s parameters_file=%s", args.metrics_dir, args.parameters_file)
 
     codec = ActionCodec(policy=args.policy)

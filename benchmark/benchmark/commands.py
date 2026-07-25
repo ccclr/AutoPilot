@@ -67,10 +67,10 @@ class CommandMaker:
             f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_region_matrix_*.npy ; '
             f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_vector_*.npy ; '
             # f'rm -rf /home/ccclr0302/{repo_name}/metrics-{node_id}; '
-            f'rm -f /tmp/autobahn_rl_param_*.sock ; '
-            f'rm -f /tmp/autobahn_rl_param_abandon_*.signal ; '
-            f'rm -f /tmp/autobahn_core_*.sock ; '
-            f'rm -f /tmp/autobahn_controller_*.sock ; '
+            f'rm -f /tmp/autopilot_rl_param_*.sock ; '
+            f'rm -f /tmp/autopilot_rl_param_abandon_*.signal ; '
+            f'rm -f /tmp/autopilot_core_*.sock ; '
+            f'rm -f /tmp/autopilot_controller_*.sock ; '
             f'sudo rm -rf /home/ccclr0302/metrics-* /home/ccclr0302/{repo_name}/metrics-* || true'
         )
 
@@ -90,7 +90,7 @@ class CommandMaker:
         assert isinstance(parameters, str)
         assert isinstance(debug, bool)
         v = '-vvv' if debug else '-vv'
-        socket_env = f'RUST_STATE_SOCKET_PATH=/tmp/autobahn_core_{node_index}.sock' if node_index is not None else ''
+        socket_env = f'RUST_STATE_SOCKET_PATH=/tmp/autopilot_core_{node_index}.sock' if node_index is not None else ''
         cmd = f'./node {v} run --keys {keys} --committee {committee} '
         cmd += f'--store {store} --parameters {parameters} primary'
         if socket_env:
@@ -169,7 +169,7 @@ class CommandMaker:
         # Use relative path from benchmark directory (../Agent/metrics_collector.py)
         # or absolute path if repo_name is provided
         metrics_collector_path = f'/home/ccclr0302/{repo_name}/Agent/metrics_collector.py'
-        socket_path = f'/tmp/autobahn_core_{node_index}.sock'
+        socket_path = f'/tmp/autopilot_core_{node_index}.sock'
         python = CommandMaker.agent_python(python_bin)
         cmd = f'RUST_STATE_SOCKET_PATH={socket_path} {python} {metrics_collector_path}'
         cmd += f' {epoch_slots} {window_size}'
