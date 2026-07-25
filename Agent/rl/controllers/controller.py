@@ -102,6 +102,7 @@ class AutopilotController:
         node_index: Optional[int] = None,
         log_dir: Optional[str] = None,
         resume_from: Optional[str] = None,
+        rl_algo: str = "cmab",
     ):
         """
         Initialize controller
@@ -111,12 +112,19 @@ class AutopilotController:
             parameters_file: parameter file path (.parameters.json)
             node_index: node index for logging
             log_dir: log directory
+            resume_from: optional policy checkpoint path
+            rl_algo: "cmab" (RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization)
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
         self.node_index = node_index
         self.log_dir = Path(log_dir)
         self.resume_from = resume_from
+        self.rl_algo = (rl_algo or "cmab").lower()
+        if self.rl_algo not in ("cmab", "gp_bo"):
+            raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
+        # Agent/rl root (parent of controllers/)
+        self._rl_root = Path(__file__).resolve().parent.parent
 
         # Initialize controller logger
         self.logger = get_controller_logger(node_index=node_index, log_dir=log_dir)
@@ -144,14 +152,24 @@ class AutopilotController:
         self.training_active = False
 
     def _start_continuous_training(self):
-        """Start embedded continuous CMAB training that runs throughout the Autopilot execution"""
+        """Start embedded continuous RL training that runs throughout the Autopilot execution"""
         if self._is_training_active():
             logger.info("Continuous training already active")
             return
 
-        logger.info("Starting continuous CMAB training...")
+        logger.info("Starting continuous RL training (algo=%s)...", self.rl_algo)
 
         self._start_continuous_training_subprocess()
+
+    def _training_script_name(self) -> str:
+        if self.rl_algo == "gp_bo":
+            return "train_gp_bo.py"
+        return "train_cmab_continuous.py"
+
+    def _checkpoint_dir(self) -> Path:
+        if self.rl_algo == "gp_bo":
+            return Path("/home/ccclr0302/gp_bo_checkpoints")
+        return Path("/home/ccclr0302/checkpoints")
 
     def _start_continuous_training_subprocess(self):
         logger.info("Starting continuous training subprocess (fallback mode)...")
@@ -161,14 +179,18 @@ class AutopilotController:
         logger.info(f"Continuous training output will be logged to: {training_log_file}")
 
         try:
+            train_script = self._rl_root / self._training_script_name()
+            checkpoint_dir = self._checkpoint_dir()
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
             # Start training script in continuous mode
             cmd = [
                 sys.executable,
-                "/home/ccclr0302/autopilot/Agent/rl/train_cmab_continuous.py",
+                str(train_script),
                 "--node-index", str(self.node_index),
                 "--metrics-dir", str(self.metrics_dir),
                 "--parameters-file", str(self.parameters_file),
-                "--checkpoint-dir", "/home/ccclr0302/checkpoints",
+                "--checkpoint-dir", str(checkpoint_dir),
             ]
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
@@ -185,7 +207,7 @@ class AutopilotController:
                     text=True,
                     bufsize=1,
                     universal_newlines=True,
-                    cwd="/home/ccclr0302/autopilot/Agent/rl"
+                    cwd=str(self._rl_root),
                     # Don't use start_new_session=True - monitor thread will wait for it
                 )
 
@@ -282,7 +304,10 @@ def main():
     parser.add_argument('--log-dir', type=str, default=None,
                        help='Log directory')
     parser.add_argument('--resume-from', type=str, default=None,
-                       help='Resume CMAB policy from checkpoint path')
+                       help='Resume RL policy from checkpoint path')
+    parser.add_argument('--rl-algo', type=str, default='cmab',
+                       choices=['cmab', 'gp_bo'],
+                       help='RL algorithm: cmab (RF-TS) or gp_bo (GP-UCB)')
 
     args = parser.parse_args()
 
@@ -291,6 +316,7 @@ def main():
     print(f"⚙️  Parameters file: {args.parameters_file}")
     print(f"🏷️  Node index: {args.node_index}")
     print(f"📝 Log dir: {args.log_dir}")
+    print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔁 Resume from: {args.resume_from}")
 
     # Logger will be initialized by AutopilotController
@@ -303,6 +329,7 @@ def main():
             node_index=args.node_index,
             log_dir=args.log_dir,
             resume_from=args.resume_from,
+            rl_algo=args.rl_algo,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

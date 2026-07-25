@@ -39,7 +39,9 @@ def local(ctx, debug=False):
         'tx_size': 512,
         'duration': 60,
 
-        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
+        # RL algorithm: "cmab" or "gp_bo".
+        'rl_algo': 'cmab',
+        # Checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
 
         # Unused
@@ -171,12 +173,15 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 60,
+        'duration': 30,
         'runs': 1,
 
-        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        # Example: '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl'
-        'cmab_resume_from': '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl',
+        # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization).
+        'rl_algo': 'gp_bo',
+        # Checkpoint path to resume RL, or None to train from scratch.
+        # CMAB example: '/home/ccclr0302/checkpoints/cmab_checkpoint_120.pkl'
+        # GP-BO example: '/home/ccclr0302/gp_bo_checkpoints/gp_bo_checkpoint_120.pkl'
+        'cmab_resume_from': None,
 
         # Unused5
         'simulate_partition': False,

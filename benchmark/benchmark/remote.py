@@ -505,8 +505,10 @@ class Bench:
         # Start controller for RL training.
         Print.info('Starting RL controllers...')
         resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
+        rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
+        Print.info(f'RL algo: {rl_algo}')
         if resume_from:
-            Print.info(f'CMAB resume-from: {resume_from}')
+            Print.info(f'RL resume-from: {resume_from}')
         for i, address in enumerate(primary_addresses):
             host = Committee.ip(address)
             cmd = CommandMaker.run_controller(
@@ -516,6 +518,7 @@ class Bench:
                 parameters_file="/home/ccclr0302/.parameters.json",
                 python_bin=CommandMaker.agent_venv_python(),
                 resume_from=resume_from,
+                rl_algo=rl_algo,
             )
             log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
             self._background_run(host, cmd, log_file)
