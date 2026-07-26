@@ -208,6 +208,7 @@ class CommandMaker:
         python_bin=None,
         resume_from=None,
         rl_algo=None,
+        warmup_iterations=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'/home/ccclr0302/{repo_name}/Agent/rl/controllers/controller.py'
@@ -222,4 +223,6 @@ class CommandMaker:
             cmd += f' --rl-algo {rl_algo}'
         if resume_from:
             cmd += f' --resume-from {resume_from}'
+        if warmup_iterations is not None:
+            cmd += f' --warmup-iterations {int(warmup_iterations)}'
         return cmd

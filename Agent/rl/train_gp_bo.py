@@ -39,19 +39,30 @@ def main():
         default=31,
         help="Grid resolution for continuous fast_path_timeout search",
     )
+    parser.add_argument(
+        "--warmup-iterations",
+        type=int,
+        default=5,
+        help=(
+            "Cold-start samples collected before first GP fit. "
+            "Trainer-side update skipping is disabled for GP-BO to avoid double warmup."
+        ),
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
     args = parser.parse_args()
 
+    warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous GP-BO Training (mixed timeout)")
     logger.info(
-        "metrics_dir=%s parameters_file=%s kappa=%.3f timeout_grid=%d",
+        "metrics_dir=%s parameters_file=%s kappa=%.3f timeout_grid=%d warmup=%d",
         args.metrics_dir,
         args.parameters_file,
         args.kappa,
         args.timeout_grid_size,
+        warmup_iterations,
     )
 
     codec_policy = "default" if args.policy == "default" else "rf_ts"
@@ -65,6 +76,8 @@ def main():
         mixed_space.timeout_hi,
     )
 
+    # GP-BO warmup = collect N cold-start samples, then fit.
+    # Keep trainer.warmup_iterations=0 so those samples are not discarded.
     policy = GPBOPolicy(
         feature_dim=5,
         policy_name="gp_bo",
@@ -72,7 +85,7 @@ def main():
         random_state=args.seed,
         mixed_space=mixed_space,
         timeout_grid_size=args.timeout_grid_size,
-        min_samples_to_fit=5,
+        min_samples_to_fit=warmup_iterations,
     )
     if args.resume_from:
         policy.load(args.resume_from)
@@ -88,6 +101,7 @@ def main():
         arm_catalog=arm_catalog,
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
+        warmup_iterations=0,
         checkpoint_prefix="gp_bo_checkpoint",
     )
 

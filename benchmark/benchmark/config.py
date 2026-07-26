@@ -270,6 +270,19 @@ class BenchParameters:
                 raise ConfigError('rl_algo must be "cmab" or "gp_bo"')
             self.rl_algo = rl_algo.lower()
 
+            # Unified warmup passed to controller/trainer:
+            # cmab -> skip N policy updates; gp_bo -> N cold-start samples before GP fit.
+            warmup = json.get('rl_warmup_iterations', 5)
+            if warmup in (None, ''):
+                warmup = 5
+            try:
+                warmup = int(warmup)
+            except (TypeError, ValueError) as e:
+                raise ConfigError('rl_warmup_iterations must be an integer >= 0') from e
+            if warmup < 0:
+                raise ConfigError('rl_warmup_iterations must be an integer >= 0')
+            self.rl_warmup_iterations = warmup
+
             self.simulate_partition = bool(json['simulate_partition'])
 
             self.partition_nodes = int(json['partition_nodes'])

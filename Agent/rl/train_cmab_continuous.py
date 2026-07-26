@@ -31,10 +31,22 @@ def main():
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
+    parser.add_argument(
+        "--warmup-iterations",
+        type=int,
+        default=5,
+        help="Skip policy updates for the first N iterations (CMAB trainer warmup).",
+    )
     args = parser.parse_args()
 
+    warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
-    logger.info("metrics_dir=%s parameters_file=%s", args.metrics_dir, args.parameters_file)
+    logger.info(
+        "metrics_dir=%s parameters_file=%s warmup=%d",
+        args.metrics_dir,
+        args.parameters_file,
+        warmup_iterations,
+    )
 
     codec = ActionCodec(policy=args.policy)
     arm_catalog = ArmCatalog(codec=codec, max_arms=args.max_arms, seed=args.seed)
@@ -61,6 +73,7 @@ def main():
         arm_catalog=arm_catalog,
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
+        warmup_iterations=warmup_iterations,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

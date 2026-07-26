@@ -103,6 +103,7 @@ class AutopilotController:
         log_dir: Optional[str] = None,
         resume_from: Optional[str] = None,
         rl_algo: str = "cmab",
+        warmup_iterations: int = 5,
     ):
         """
         Initialize controller
@@ -114,6 +115,9 @@ class AutopilotController:
             log_dir: log directory
             resume_from: optional policy checkpoint path
             rl_algo: "cmab" (RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization)
+            warmup_iterations: unified warmup control passed to the training script.
+                CMAB: skip policy updates for N iterations.
+                GP-BO: collect N cold-start samples before first GP fit.
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -121,6 +125,7 @@ class AutopilotController:
         self.log_dir = Path(log_dir)
         self.resume_from = resume_from
         self.rl_algo = (rl_algo or "cmab").lower()
+        self.warmup_iterations = max(0, int(warmup_iterations))
         if self.rl_algo not in ("cmab", "gp_bo"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
@@ -191,6 +196,7 @@ class AutopilotController:
                 "--metrics-dir", str(self.metrics_dir),
                 "--parameters-file", str(self.parameters_file),
                 "--checkpoint-dir", str(checkpoint_dir),
+                "--warmup-iterations", str(self.warmup_iterations),
             ]
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
@@ -308,6 +314,15 @@ def main():
     parser.add_argument('--rl-algo', type=str, default='cmab',
                        choices=['cmab', 'gp_bo'],
                        help='RL algorithm: cmab (RF-TS) or gp_bo (GP-UCB)')
+    parser.add_argument(
+        '--warmup-iterations',
+        type=int,
+        default=5,
+        help=(
+            'Unified warmup: CMAB skips updates for N iters; '
+            'GP-BO collects N cold-start samples before fit'
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -318,6 +333,7 @@ def main():
     print(f"📝 Log dir: {args.log_dir}")
     print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔁 Resume from: {args.resume_from}")
+    print(f"🔥 Warmup iterations: {args.warmup_iterations}")
 
     # Logger will be initialized by AutopilotController
 
@@ -330,6 +346,7 @@ def main():
             log_dir=args.log_dir,
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
+            warmup_iterations=args.warmup_iterations,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

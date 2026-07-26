@@ -41,6 +41,10 @@ def local(ctx, debug=False):
 
         # RL algorithm: "cmab" or "gp_bo".
         'rl_algo': 'cmab',
+        # Unified RL warmup:
+        # - cmab: skip policy updates for the first N iterations
+        # - gp_bo: collect N cold-start samples before first GP fit
+        'rl_warmup_iterations': 5,
         # Checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
 
@@ -86,18 +90,10 @@ def local(ctx, debug=False):
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
 
-        # Ablation: aggregation strategy for global state.
-        # "normal"  -> original behaviour (max for growth_rates, median for reward/fpr).
-        # "mean"    -> arithmetic mean for all three metrics.
         'aggregation_strategy': 'mean',
 
-        # Ablation: data-pollution simulation.
-        # List the 0-based node indices that act as polluters.
         'data_pollution_node_ids': [0],
-        # Probability [0.0, 1.0] that a polluter reports fake metrics.
         'data_pollution_prob': 1.0,
-        # "random_scale" keeps the old random up/down scaling behaviour.
-        # "mean_equalize" makes polluted metrics converge to a narrow target band.
         'data_pollution_strategy': 'mean_equalize',
     }
     try:
@@ -178,6 +174,11 @@ def remote(ctx, debug=False):
 
         # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization).
         'rl_algo': 'gp_bo',
+        # Unified RL warmup:
+        # - cmab: skip policy updates for the first N iterations
+        # - gp_bo: collect N cold-start samples before first GP fit
+        # (GP-BO no longer also skips trainer updates — that was double warmup.)
+        'rl_warmup_iterations': 5,
         # Checkpoint path to resume RL, or None to train from scratch.
         # CMAB example: '/home/ccclr0302/checkpoints/cmab_checkpoint_120.pkl'
         # GP-BO example: '/home/ccclr0302/gp_bo_checkpoints/gp_bo_checkpoint_120.pkl'
