@@ -87,7 +87,6 @@ class CommandMaker:
             f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_full_matrix_*.npy ; '
             f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_region_matrix_*.npy ; '
             f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_vector_*.npy ; '
-            # f'rm -rf /home/ccclr0302/{repo_name}/metrics-{node_id}; '
             f'rm -f /tmp/autopilot_rl_param_*.sock ; '
             f'rm -f /tmp/autopilot_rl_param_abandon_*.signal ; '
             f'rm -f /tmp/autopilot_core_*.sock ; '
@@ -97,7 +96,7 @@ class CommandMaker:
 
     @staticmethod
     def compile():
-        return 'cargo build --quiet --release --features benchmark'
+        return 'cargo build --release --features benchmark'
 
     @staticmethod
     def generate_key(filename):

@@ -169,7 +169,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [20_000],
         'tx_size': 512,
-        'duration': 600,
+        'duration': 100,
         'runs': 1,
 
         # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization).
@@ -295,7 +295,6 @@ def logs(ctx):
 def _get_nodes_from_fab_info():
     """Get node metadata (name, region, ip) from InstanceManager/fab info."""
     manager = InstanceManager.make()
-    # Reuse the same source as `fab info` (running/staging instances).
     ids_by_region, ips_by_region = manager._get(['STAGING', 'RUNNING'])
 
     nodes = []
@@ -308,31 +307,71 @@ def _get_nodes_from_fab_info():
     return nodes
 
 
-def _detect_current_node_from_fab_info(nodes):
-    """Best-effort detect current node by matching local IP to fab-info IPs."""
+def _local_ips():
+    """Collect non-loopback local IPs (best effort)."""
     import socket
     import subprocess
 
-    local_ips = set()
+    ips = set()
     try:
-        local_ips.update(socket.gethostbyname_ex(socket.gethostname())[2])
+        ips.update(socket.gethostbyname_ex(socket.gethostname())[2])
     except Exception:
         pass
     try:
         output = subprocess.check_output(["hostname", "-I"], text=True).strip()
         if output:
-            local_ips.update(output.split())
+            ips.update(output.split())
     except Exception:
         pass
+    return {ip for ip in ips if ip and not ip.startswith("127.")}
 
-    local_ips = {ip for ip in local_ips if ip and not ip.startswith("127.")}
+
+def _detect_current_node_from_fab_info(nodes):
+    """Best-effort detect current node by matching local IP to fab-info IPs."""
+    local_ips = _local_ips()
     if not local_ips:
         return None
-
     for node in nodes:
         if node["ip"] in local_ips:
             return node
     return None
+
+
+def _resolve_source_node(nodes, source_node):
+    """Resolve source node by name, or auto-detect from local IPs."""
+    if source_node is None:
+        source = _detect_current_node_from_fab_info(nodes)
+        if source is None:
+            raise ValueError(
+                "Could not determine current node from fab info; please pass --source-node"
+            )
+        print(
+            f"Auto-detected current node from fab info: {source['name']} "
+            f"({source['region']}, {source['ip']})"
+        )
+        return source
+
+    print(f"Using specified source node: {source_node}")
+    for node in nodes:
+        if node["name"] == source_node:
+            return node
+    raise ValueError(f"Source node {source_node} not found in committee")
+
+
+def _print_latency_stats(values, title, success_total=None):
+    """Print mean/std/min/max for a latency list (ignores NaN)."""
+    valid = [v for v in values if not np.isnan(v)]
+    if not valid:
+        print(f"\n=== No Valid Measurements ({title}) ===")
+        return
+    print(f"\n=== {title} ===")
+    print(f"Mean Latency: {np.mean(valid):.2f} ms")
+    print(f"Std Deviation: {np.std(valid):.2f} ms")
+    print(f"Min Latency: {np.min(valid):.2f} ms")
+    print(f"Max Latency: {np.max(valid):.2f} ms")
+    if success_total is not None:
+        print(f"Success Rate: {len(valid)}/{success_total}")
+
 
 @task
 def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
@@ -340,18 +379,14 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     Measure SSH latency between nodes.
 
     Args:
-        cross_region: Whether to also measure cross-region latency (default: False)
-        source_node: If specified, measure latency only from this node to all others.
-                    If None, auto-detect current node.
-        full_matrix: If True, measure full node-to-node latency matrix instead of single source.
+        cross_region: Also report cross-region latency (used with full_matrix).
+        source_node: Source node name; None => auto-detect current node.
+        full_matrix: If True, also measure the full node-to-node matrix.
     """
-    import time
-    import numpy as np
     import json
-    import os
+    import time
     from fabric import Connection
     from paramiko import RSAKey, SSHException
-    from invoke.exceptions import UnexpectedExit
     from benchmark.utils import Print
 
     try:
@@ -361,7 +396,6 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         Print.error(f"Failed to load SSH key: {e}")
         return
 
-    # Read node metadata from fab info source.
     node_records = _get_nodes_from_fab_info()
     if not node_records:
         error_msg = "Failed to read node info from fab/InstanceManager"
@@ -369,38 +403,17 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         return
 
     print(f"Total nodes from fab info: {len(node_records)}")
-
-    source_record = None
-    if source_node is None:
-        source_record = _detect_current_node_from_fab_info(node_records)
-        if source_record is None:
-            error_msg = "Could not determine current node from fab info; please pass --source-node"
-            Print.error(BenchError(error_msg, Exception(error_msg)))
-            return
-        source_node = source_record["name"]
-        print(
-            f"Auto-detected current node from fab info: {source_record['name']} "
-            f"({source_record['region']}, {source_record['ip']})"
-        )
-    else:
-        print(f"Using specified source node: {source_node}")
-        for node in node_records:
-            if node["name"] == source_node:
-                source_record = node
-                break
-
-    # Single source mode (default behavior)
-    if source_record is None:
-        error_msg = f"Source node {source_node} not found in committee"
-        Print.error(BenchError(error_msg, Exception(error_msg)))
+    try:
+        source_record = _resolve_source_node(node_records, source_node)
+    except ValueError as e:
+        Print.error(BenchError(str(e), e))
         return
 
-    current_node_ip = source_record["ip"]
-    print(f"Source node: {source_record['name']} ({source_record['region']})")
-    print(f"Source node IP: {current_node_ip}")
-
-    # Get all target nodes (excluding self)
-    target_nodes = [node for node in node_records if node["name"] != source_node]
+    source_node = source_record["name"]
+    source_ip = source_record["ip"]
+    target_nodes = [n for n in node_records if n["name"] != source_node]
+    print(f"Source node: {source_node} ({source_record['region']})")
+    print(f"Source node IP: {source_ip}")
     print(f"Will measure latency to {len(target_nodes)} other nodes")
 
     def ssh_latency(src_ip, dst_ip, repeat=1):
@@ -409,190 +422,137 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         results = []
         for _ in range(repeat):
             try:
-                # Note: We connect to dst_ip but the source is determined by which machine we're running on
+                # Source is whichever machine runs this task; we only SSH to dst.
                 conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
                 conn.run("echo warmup", hide=True, timeout=5)
                 start = time.time()
                 conn.run("echo hello", hide=True, timeout=5)
                 end = time.time()
                 conn.close()
-                results.append((end - start) * 1000)  # ms
+                results.append((end - start) * 1000)
             except Exception as e:
                 print(f"[Error] SSH {src_ip} → {dst_ip}: {e}")
                 results.append(np.nan)
         valid = [x for x in results if not np.isnan(x)]
         return np.mean(valid) if valid else np.nan
 
-    if full_matrix:
-        # Full matrix mode: measure all node pairs (fallback for compatibility)
-        print("Warning: Full matrix mode requested - this will measure all node pairs and may be slow")
-        print("For normal operation, consider using single-source mode (default)")
-
-        region_to_nodes = {}
-        for node in node_records:
-            region_to_nodes.setdefault(node["region"], []).append(node)
-
-        region_nodes = []
-        all_nodes = list(node_records)
-        for region, nodes in region_to_nodes.items():
-            if len(nodes) < 2:
-                Print.warn(f"[Skip] Region {region} has <2 nodes.")
-            region_nodes.append((region, nodes))
-
-        m = len(region_nodes)
-        region_matrix = np.zeros((m, m))
-        region_names = [r[0] for r in region_nodes]
-
-        n_total = len(all_nodes)
-        full_latency_matrix = np.zeros((n_total, n_total))
-        node_names = [node["name"] for node in all_nodes]
-
-        print("=== Measuring Full Node-to-Node Latency Matrix ===")
-        for i, src_node in enumerate(all_nodes):
-            for j, dst_node in enumerate(all_nodes):
-                if i == j:
-                    continue
-
-                src_ip = src_node["ip"]
-                dst_ip = dst_node["ip"]
-
-                latency = ssh_latency(src_ip, dst_ip)
-                full_latency_matrix[i][j] = latency if latency else np.nan
-
-                if latency:
-                    print(f"  {src_node['name']} → {dst_node['name']}: {latency:.2f} ms")
-                else:
-                    print(f"  {src_node['name']} → {dst_node['name']}: Failed")
-
-        # Region summaries and statistics for full matrix mode...
-        print("\n=== Calculating Region Summaries ===")
-        for i, (region, nodes) in enumerate(region_nodes):
-            region_node_names = {node["name"] for node in nodes}
-            region_indices = [idx for idx, node in enumerate(all_nodes) if node["name"] in region_node_names]
-            region_latencies = []
-            for j in region_indices:
-                for k in region_indices:
-                    if j != k and not np.isnan(full_latency_matrix[j][k]):
-                        region_latencies.append(full_latency_matrix[j][k])
-
-            if region_latencies:
-                avg_latency = np.mean(region_latencies)
-                region_matrix[i][i] = avg_latency
-                print(f"  [Average] {region}: {avg_latency:.2f} ms")
-            else:
-                region_matrix[i][i] = np.nan
-
-        if cross_region:
-            print("\n=== Measuring Cross-region Latency ===")
-            for i in range(m):
-                region_i, nodes_i = region_nodes[i]
-                for j in range(m):
-                    if i == j:
-                        continue
-                    region_j, nodes_j = region_nodes[j]
-
-                    node_i = nodes_i[0]
-                    node_j = nodes_j[0]
-
-                    latency = ssh_latency(node_i["ip"], node_j["ip"])
-                    region_matrix[i][j] = latency if latency else np.nan
-
-                    if latency:
-                        print(f"[Cross] {region_i} → {region_j}: {region_matrix[i][j]:.2f} ms")
-                    else:
-                        print(f"[Cross] {region_i} → {region_j}: Failed")
-
-        print(f"\n=== Full Node Latency Matrix (ms) ===")
-        print("Nodes:", node_names)
-        print(full_latency_matrix)
-
-        def full_matrix_stats(matrix):
-            off_diagonal = [matrix[i][j] for i in range(len(matrix))
-                          for j in range(len(matrix)) if i != j and not np.isnan(matrix[i][j])]
-
-            if not off_diagonal:
-                return None, None, None, None
-
-            mean_latency = np.mean(off_diagonal)
-            std_latency = np.std(off_diagonal)
-            min_latency = np.min(off_diagonal)
-            max_latency = np.max(off_diagonal)
-
-            return mean_latency, std_latency, min_latency, max_latency
-
-        stats = full_matrix_stats(full_latency_matrix)
-        if stats[0] is not None:
-            mean_lat, std_lat, min_lat, max_lat = stats
-            print(f"\n=== Full Matrix Statistics ===")
-            print(f"Mean Latency: {mean_lat:.2f} ms")
-            print(f"Std Deviation: {std_lat:.2f} ms")
-            print(f"Min Latency: {min_lat:.2f} ms")
-            print(f"Max Latency: {max_lat:.2f} ms")
-
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        np.save(f"latency_full_matrix_{timestamp}.npy", full_latency_matrix)
-        print(f"\nResults saved to:")
-        print(f"  - latency_full_matrix_{timestamp}.npy")
-
-    # Default behavior: measure latency vector from source node to all others
-    print("=== Measuring Latency from Current Node ===")
-    latency_vector = []
-    measured_count = 0
-
-    for target in target_nodes:
-        target_name = target["name"]
-        target_ip = target["ip"]
-        target_region = target["region"]
-        latency = ssh_latency(current_node_ip, target_ip)
-        latency_vector.append(latency if latency else np.nan)
-
-        if latency:
-            print(f"  {source_node} ({source_record['region']}) → {target_name} ({target_region}): {latency:.2f} ms")
-            measured_count += 1
-        else:
-            print(f"  {source_node} ({source_record['region']}) → {target_name} ({target_region}): Failed")
-
-    print(f"\nSuccessfully measured latency to {measured_count}/{len(target_nodes)} nodes")
-
-    # Calculate statistics
-    valid_latencies = [lat for lat in latency_vector if not np.isnan(lat)]
-
-    if valid_latencies:
-        mean_lat = np.mean(valid_latencies)
-        std_lat = np.std(valid_latencies)
-        min_lat = np.min(valid_latencies)
-        max_lat = np.max(valid_latencies)
-
-        print("\n=== Latency Statistics ===")
-        print(f"Mean Latency: {mean_lat:.2f} ms")
-        print(f"Std Deviation: {std_lat:.2f} ms")
-        print(f"Min Latency: {min_lat:.2f} ms")
-        print(f"Max Latency: {max_lat:.2f} ms")
-        print(f"Success Rate: {len(valid_latencies)}/{len(latency_vector)}")
-    else:
-        print("\n=== No Valid Measurements ===")
+    def store_latency(value):
+        # Preserve historical falsy handling: 0 / None / NaN => NaN.
+        return value if value else np.nan
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
-    # Output the latency vector as JSON for easy parsing
-    import json
-    output_data = {
-        'source_node': source_node,
-        'source_region': source_record['region'],
-        'source_ip': current_node_ip,
-        'target_nodes': [{'name': node['name'], 'region': node['region'], 'ip': node['ip']} for node in target_nodes],
-        'latencies': [float(x) if not np.isnan(x) else None for x in latency_vector],
-        'timestamp': timestamp
-    }
+    if full_matrix:
+        print("Warning: Full matrix mode requested - this will measure all node pairs and may be slow")
+        print("For normal operation, consider using single-source mode (default)")
 
-    # Print JSON output that can be captured by the calling process
+        all_nodes = list(node_records)
+        n_total = len(all_nodes)
+        node_names = [n["name"] for n in all_nodes]
+        name_to_idx = {n["name"]: i for i, n in enumerate(all_nodes)}
+        matrix = np.full((n_total, n_total), np.nan)
+
+        region_to_nodes = {}
+        for node in all_nodes:
+            region_to_nodes.setdefault(node["region"], []).append(node)
+        region_nodes = list(region_to_nodes.items())
+        for region, nodes in region_nodes:
+            if len(nodes) < 2:
+                Print.warn(f"[Skip] Region {region} has <2 nodes.")
+
+        print("=== Measuring Full Node-to-Node Latency Matrix ===")
+        for i, src in enumerate(all_nodes):
+            for j, dst in enumerate(all_nodes):
+                if i == j:
+                    matrix[i][j] = 0.0
+                    continue
+                value = store_latency(ssh_latency(src["ip"], dst["ip"]))
+                matrix[i][j] = value
+                if not np.isnan(value):
+                    print(f"  {src['name']} → {dst['name']}: {value:.2f} ms")
+                else:
+                    print(f"  {src['name']} → {dst['name']}: Failed")
+
+        print("\n=== Calculating Region Summaries ===")
+        for region, nodes in region_nodes:
+            idxs = [name_to_idx[n["name"]] for n in nodes]
+            values = [
+                matrix[j][k]
+                for j in idxs
+                for k in idxs
+                if j != k and not np.isnan(matrix[j][k])
+            ]
+            if values:
+                print(f"  [Average] {region}: {np.mean(values):.2f} ms")
+            else:
+                print(f"  [Average] {region}: nan")
+
+        if cross_region:
+            print("\n=== Measuring Cross-region Latency ===")
+            for region_i, nodes_i in region_nodes:
+                for region_j, nodes_j in region_nodes:
+                    if region_i == region_j:
+                        continue
+                    src, dst = nodes_i[0], nodes_j[0]
+                    # Reuse full-matrix sample for the region representatives.
+                    value = matrix[name_to_idx[src["name"]]][name_to_idx[dst["name"]]]
+                    if not np.isnan(value):
+                        print(f"[Cross] {region_i} → {region_j}: {value:.2f} ms")
+                    else:
+                        print(f"[Cross] {region_i} → {region_j}: Failed")
+
+        print("\n=== Full Node Latency Matrix (ms) ===")
+        print("Nodes:", node_names)
+        print(matrix)
+
+        off_diag = [
+            matrix[i][j]
+            for i in range(n_total)
+            for j in range(n_total)
+            if i != j and not np.isnan(matrix[i][j])
+        ]
+        _print_latency_stats(off_diag, "Full Matrix Statistics")
+
+        np.save(f"latency_full_matrix_{timestamp}.npy", matrix)
+        print("\nResults saved to:")
+        print(f"  - latency_full_matrix_{timestamp}.npy")
+
+    # Always emit single-source latency vector (consumed by callers via JSON markers).
+    print("=== Measuring Latency from Current Node ===")
+    latency_vector = []
+    measured_count = 0
+    for target in target_nodes:
+        value = store_latency(ssh_latency(source_ip, target["ip"]))
+        latency_vector.append(value)
+        if not np.isnan(value):
+            print(
+                f"  {source_node} ({source_record['region']}) → "
+                f"{target['name']} ({target['region']}): {value:.2f} ms"
+            )
+            measured_count += 1
+        else:
+            print(
+                f"  {source_node} ({source_record['region']}) → "
+                f"{target['name']} ({target['region']}): Failed"
+            )
+
+    print(f"\nSuccessfully measured latency to {measured_count}/{len(target_nodes)} nodes")
+    _print_latency_stats(latency_vector, "Latency Statistics", success_total=len(latency_vector))
+
+    output_data = {
+        "source_node": source_node,
+        "source_region": source_record["region"],
+        "source_ip": source_ip,
+        "target_nodes": [
+            {"name": n["name"], "region": n["region"], "ip": n["ip"]} for n in target_nodes
+        ],
+        "latencies": [float(x) if not np.isnan(x) else None for x in latency_vector],
+        "timestamp": timestamp,
+    }
     print("LATENCY_VECTOR_JSON_START")
     print(json.dumps(output_data))
     print("LATENCY_VECTOR_JSON_END")
 
-    # Also save to file for debugging
     np.save(f"latency_vector_{timestamp}.npy", np.array(latency_vector))
     print(f"\nResults also saved to: latency_vector_{timestamp}.npy", file=sys.stderr)
-
-    return
 

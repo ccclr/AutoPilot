@@ -47,5 +47,5 @@
     "use_optimistic_tips": true,
     "use_parallel_proposals": true,
     "use_ride_share": false,
-    "window_size": 16
+    "window_size": 12
 }

@@ -61,8 +61,8 @@ class MetricsLogger:
         self.log_dir = Path(log_dir)
         # Use provided node_index, or try to detect it, or default to 0
         self.node_index = node_index
-        # Use node-indexed filename if node_index is provided
-        filename = f"metrics-0.log" if node_index is not None else "metrics.log"
+        # Keep filename aligned with Rust metrics logger: metrics-{node_index}.log
+        filename = f"metrics-{node_index}.log" if node_index is not None else "metrics.log"
         self.metrics_log_path = self.log_dir / filename
         self._buffer: List[str] = []
         self._buffer_size = 1  # Flush every event for immediate visibility
