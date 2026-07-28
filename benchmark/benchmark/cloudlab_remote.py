@@ -112,6 +112,8 @@ class CloudLabBench:
             return
         Print.info('Installing rust and cloning the repo...')
         cargo_env = f'{self.home}/.cargo/env'
+        venv_path = CommandMaker.AGENT_VENV_PATH
+        venv_python = CommandMaker.agent_venv_python()
         cmd = [
             'sudo sed -i "/bullseye-backports/d" /etc/apt/sources.list',
             'sudo apt-get update',
@@ -135,6 +137,12 @@ class CloudLabBench:
 
             f'ln -sf {self.settings.repo_name}/target/release/node ~/node',
             f'ln -sf {self.settings.repo_name}/target/release/benchmark_client ~/benchmark_client',
+
+            # Agent venv on every remote node.
+            f'if [ ! -x {venv_python} ]; then rm -rf {venv_path}; python3 -m venv {venv_path}; fi',
+            f'{venv_python} -m ensurepip --upgrade || true',
+            f'{venv_python} -m pip install -q --upgrade pip',
+            f'(cd {self.settings.repo_name} && {venv_python} -m pip install -q -r Agent/requirements.txt)',
         ]
 
         hosts = all_nodes
@@ -143,6 +151,7 @@ class CloudLabBench:
             g = Group(*hosts, user=self.settings.username, connect_kwargs=self.connect)
             g.run(' && '.join(cmd), hide=True)
             Print.heading(f'Initialized CloudLab testbed of {len(hosts)} nodes')
+            Print.info(f'Agent venv ready on remotes: {venv_path}')
         except (GroupException, ExecutionError) as e:
             e = FabricError(e) if isinstance(e, GroupException) else e
             raise BenchError('Failed to install repo on testbed', e)

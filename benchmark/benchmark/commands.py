@@ -7,8 +7,8 @@ from benchmark.utils import PathMaker
 
 
 class CommandMaker:
-    HOME = '/home/ccclr0302'
-    AGENT_VENV_PATH = '/home/ccclr0302/autopilot-venv'
+    HOME = '/users/clr0302'
+    AGENT_VENV_PATH = '/users/clr0302/autopilot-venv'
 
     @classmethod
     def set_home(cls, home):
@@ -37,8 +37,13 @@ class CommandMaker:
     @staticmethod
     def ensure_agent_venv(requirements_file):
         """Create the Agent venv locally and install dependencies."""
+        import shutil
+
         venv_path = CommandMaker.AGENT_VENV_PATH
-        venv_pip = CommandMaker.agent_venv_pip()
+        venv_python = CommandMaker.agent_venv_python()
+        broken = os.path.isdir(venv_path) and not os.path.isfile(venv_python)
+        if broken:
+            shutil.rmtree(venv_path, ignore_errors=True)
         if not os.path.isdir(venv_path):
             subprocess.run(
                 ['python3', '-m', 'venv', venv_path],
@@ -46,15 +51,22 @@ class CommandMaker:
                 capture_output=True,
                 text=True,
             )
+        # Prefer `python -m pip` so we do not depend on a bin/pip symlink.
         try:
             subprocess.run(
-                [venv_pip, 'install', '-q', '--upgrade', 'pip'],
+                [venv_python, '-m', 'ensurepip', '--upgrade'],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                [venv_python, '-m', 'pip', 'install', '-q', '--upgrade', 'pip'],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             subprocess.run(
-                [venv_pip, 'install', '-q', '-r', requirements_file],
+                [venv_python, '-m', 'pip', 'install', '-q', '-r', requirements_file],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -64,19 +76,28 @@ class CommandMaker:
             raise RuntimeError(
                 f'Failed to install Agent dependencies into {venv_path}: {detail}'
             ) from e
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                f'Agent venv python missing at {venv_python}; '
+                f'install python3-venv and recreate {venv_path}'
+            ) from e
         return CommandMaker.agent_venv_python()
 
     @staticmethod
     def remote_agent_venv_setup_cmds(repo_name):
         """Shell commands to create the Agent venv on a remote host."""
         venv_path = CommandMaker.AGENT_VENV_PATH
-        venv_pip = CommandMaker.agent_venv_pip()
+        venv_python = CommandMaker.agent_venv_python()
         return [
             'sudo apt-get update -qq',
             'sudo apt-get -y -qq install python3-pip python3-venv',
-            f'test -d {venv_path} || python3 -m venv {venv_path}',
-            f'{venv_pip} install -q --upgrade pip',
-            f'(cd {repo_name} && {venv_pip} install -q -r Agent/requirements.txt)',
+            (
+                f'if [ ! -x {venv_python} ]; then '
+                f'rm -rf {venv_path}; python3 -m venv {venv_path}; fi'
+            ),
+            f'{venv_python} -m ensurepip --upgrade || true',
+            f'{venv_python} -m pip install -q --upgrade pip',
+            f'(cd {repo_name} && {venv_python} -m pip install -q -r Agent/requirements.txt)',
         ]
 
     @staticmethod
