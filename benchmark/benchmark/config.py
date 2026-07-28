@@ -262,6 +262,27 @@ class BenchParameters:
                     raise ConfigError('cmab_resume_from must be a string path or null')
                 self.cmab_resume_from = resume_from
 
+            # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB BO).
+            rl_algo = json.get('rl_algo', 'cmab')
+            if rl_algo in (None, ''):
+                rl_algo = 'cmab'
+            if not isinstance(rl_algo, str) or rl_algo.lower() not in ('cmab', 'gp_bo'):
+                raise ConfigError('rl_algo must be "cmab" or "gp_bo"')
+            self.rl_algo = rl_algo.lower()
+
+            # Unified warmup passed to controller/trainer:
+            # cmab -> skip N policy updates; gp_bo -> N cold-start samples before GP fit.
+            warmup = json.get('rl_warmup_iterations', 5)
+            if warmup in (None, ''):
+                warmup = 5
+            try:
+                warmup = int(warmup)
+            except (TypeError, ValueError) as e:
+                raise ConfigError('rl_warmup_iterations must be an integer >= 0') from e
+            if warmup < 0:
+                raise ConfigError('rl_warmup_iterations must be an integer >= 0')
+            self.rl_warmup_iterations = warmup
+
             self.simulate_partition = bool(json['simulate_partition'])
 
             self.partition_nodes = int(json['partition_nodes'])

@@ -9,13 +9,12 @@ import time
 import hashlib
 from collections import deque
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
 from .arm_catalog import ArmCatalog
 from .context_builder import ContextBuilder
-from .policy import CMABPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +25,13 @@ class CMABTrainer:
         metrics_dir: str,
         parameters_file: str,
         checkpoint_dir: str,
-        policy: CMABPolicy,
+        policy: Any,
         context_builder: ContextBuilder,
         arm_catalog: ArmCatalog,
         metrics_timeout: int = 300,
         node_index: Optional[int] = None,
         warmup_iterations: int = 5,
+        checkpoint_prefix: str = "cmab_checkpoint",
     ):
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -50,6 +50,7 @@ class CMABTrainer:
         self._param_socket: Optional[socket.socket] = None
         self.node_index = node_index
         self.warmup_iterations = max(0, warmup_iterations)
+        self.checkpoint_prefix = checkpoint_prefix or "cmab_checkpoint"
 
     def run(self, num_iterations: Optional[int], checkpoint_freq: int):
         logger.info("Initializing CMAB training loop...")
@@ -183,7 +184,9 @@ class CMABTrainer:
             )
 
             if iteration % checkpoint_freq == 0:
-                checkpoint_path = self.checkpoint_dir / f"cmab_checkpoint_{iteration}.pkl"
+                checkpoint_path = (
+                    self.checkpoint_dir / f"{self.checkpoint_prefix}_{iteration}.pkl"
+                )
                 self.policy.save(str(checkpoint_path))
                 logger.info("Saved checkpoint: %s", checkpoint_path)
 

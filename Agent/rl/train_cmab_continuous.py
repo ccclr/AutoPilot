@@ -5,6 +5,7 @@ Continuous CMAB Training Script for Autopilot System.
 
 import argparse
 import logging
+from pathlib import Path
 
 from actions.action_encode import ActionCodec
 from cmab import ArmCatalog, CMABPolicy, CMABTrainer, ContextBuilder
@@ -17,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    home = Path.home()
     parser = argparse.ArgumentParser(description="Continuous CMAB Training for Autopilot")
-    parser.add_argument("--metrics-dir", type=str, default="/home/ccclr0302/autopilot/metrics")
-    parser.add_argument("--parameters-file", type=str, default="/home/ccclr0302/.parameters.json")
+    parser.add_argument("--metrics-dir", type=str, default=str(home / "autopilot" / "metrics"))
+    parser.add_argument("--parameters-file", type=str, default=str(home / ".parameters.json"))
     parser.add_argument("--checkpoint-dir", type=str, default="/tmp/cmab_continuous_checkpoints")
     parser.add_argument("--num-iterations", type=int, default=200)
     parser.add_argument("--checkpoint-freq", type=int, default=10)
@@ -31,10 +33,22 @@ def main():
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
+    parser.add_argument(
+        "--warmup-iterations",
+        type=int,
+        default=5,
+        help="Skip policy updates for the first N iterations (CMAB trainer warmup).",
+    )
     args = parser.parse_args()
 
+    warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
-    logger.info("metrics_dir=%s parameters_file=%s", args.metrics_dir, args.parameters_file)
+    logger.info(
+        "metrics_dir=%s parameters_file=%s warmup=%d",
+        args.metrics_dir,
+        args.parameters_file,
+        warmup_iterations,
+    )
 
     codec = ActionCodec(policy=args.policy)
     arm_catalog = ArmCatalog(codec=codec, max_arms=args.max_arms, seed=args.seed)
@@ -61,6 +75,7 @@ def main():
         arm_catalog=arm_catalog,
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
+        warmup_iterations=warmup_iterations,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

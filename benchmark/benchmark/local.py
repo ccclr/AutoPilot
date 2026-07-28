@@ -221,8 +221,12 @@ class LocalBench:
             # Start controller for RL training.
             agent_python = CommandMaker.agent_venv_python()
             resume_from = getattr(self.bench_parameters, 'cmab_resume_from', None)
+            rl_algo = getattr(self.bench_parameters, 'rl_algo', 'cmab')
+            warmup_iterations = getattr(self.bench_parameters, 'rl_warmup_iterations', 5)
+            Print.info(f'RL algo: {rl_algo}')
+            Print.info(f'RL warmup iterations: {warmup_iterations}')
             if resume_from:
-                Print.info(f'CMAB resume-from: {resume_from}')
+                Print.info(f'RL resume-from: {resume_from}')
             for i, address in enumerate(primary_addresses):
                 cmd = CommandMaker.run_controller(
                     node_index=i,
@@ -231,6 +235,8 @@ class LocalBench:
                     parameters_file=os.path.abspath(PathMaker.local_parameters_file(i)),
                     python_bin=agent_python,
                     resume_from=resume_from,
+                    rl_algo=rl_algo,
+                    warmup_iterations=warmup_iterations,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(cmd, log_file)

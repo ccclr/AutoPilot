@@ -3,12 +3,11 @@
         "name": "clr0302",
         "path": "/users/clr0302/.ssh/id_rsa"
     },
-    "ssh_key_password": "clr0302",
     "port": 5000,
     "repo": {
         "name": "autopilot",
-        "url": "git@github.com:ccclr/autopilot.git",
-        "branch": "test"
+        "url": "https://github.com/ccclr/autopilot.git",
+        "branch": "cloudlab"
     },
     "username": "clr0302",
     "home": "/users/clr0302",
