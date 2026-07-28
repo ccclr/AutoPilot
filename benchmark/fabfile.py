@@ -18,10 +18,10 @@ import numpy as np
 
 from benchmark.local import LocalBench
 from benchmark.logs import ParseError, LogParser
-from benchmark.utils import Print
+from benchmark.utils import Print, BenchError
 from benchmark.plot import Ploter, PlotError
-from benchmark.gcp_instance import InstanceManager
-from benchmark.remote import Bench, BenchError
+from benchmark.cloudlab_instance import CloudLabInstanceManager as InstanceManager
+from benchmark.cloudlab_remote import CloudLabBench as Bench
 from fabric.transfer import Transfer
 from paramiko import RSAKey, SSHException
 from invoke.exceptions import UnexpectedExit
@@ -163,7 +163,7 @@ from fabric import task
 
 @task
 def remote(ctx, debug=False):
-    ''' Run benchmarks on AWS '''
+    ''' Run benchmarks on CloudLab '''
     bench_params = {
         'faults': 0,
         'nodes': [4],
@@ -175,23 +175,18 @@ def remote(ctx, debug=False):
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        # Example: '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl'
-        'cmab_resume_from': '/home/ccclr0302/autopilot/checkpoints/cmab_checkpoint_120.pkl',
+        'cmab_resume_from': None,
 
-        # Unused5
+        # Unused
         'simulate_partition': False,
         'partition_start': 5,
         'partition_duration': 5,
         'partition_nodes': 2,
-        
+
         'enable_hotspot': False,
         'hotspot_windows': [[0, 120]],
-        'hotspot_regions': [['asia-east2-b']],  # one list per window
-        # Per-window per-region hotspot node counts (align with hotspot_regions window entry).
-        # Example: [[1, 1, 2]] => 1 from asia-southeast1-b, 1 from us-central1-c, 2 from us-central1-f.
-        'hotspot_nodes': [[5]],
-        # Optional: per-window per-region rates (align with hotspot_regions window entry).
-        # Example below means asia-east2-a uses 0.9, us-central1-c uses 0.6.
+        'hotspot_regions': [['utah']],
+        'hotspot_nodes': [[1]],
         'hotspot_region_rates': [[0.9]],
     }
     node_params = {
@@ -218,30 +213,18 @@ def remote(ctx, debug=False):
         'simulate_asynchrony': False,
         'asynchrony_type': [6],
 
-        'asynchrony_start': [0], #s
-        'asynchrony_duration': [120], #s
-        "affected_nodes":[1],
-        # Optional: region-based selection of async/malicious nodes (per window).
-        # Each region gets `asynchrony_nodes[w]` nodes. E.g. regions=[A,B], n=1 => 1 from A + 1 from B.
-        'asynchrony_nodes': [ ],  # per region when asynchrony_regions is set
-        # 'asynchrony_regions': [['us-central1-f', 'us-central1-c']],  # one list per window
-        # Optional: per-window per-region egress penalty (ms), aligned with asynchrony_regions.
-        # Example: [['us-central1-c', 'asia-east2-a']], [[300, 120]] => us-central1-c=300ms, asia-east2-a=120ms.
-        'asynchrony_regions': [[ ]],
+        'asynchrony_start': [0],  # s
+        'asynchrony_duration': [120],  # s
+        'affected_nodes': [1],
+        'asynchrony_nodes': [],
+        'asynchrony_regions': [[]],
         'egress_penalty': [[]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
 
-        # Ablation: aggregation strategy for global state.
-        # "normal"  -> original behaviour (max for growth_rates, median for reward/fpr).
-        # "mean"    -> arithmetic mean for all three metrics.
         'aggregation_strategy': 'normal',
-
-        # Ablation: data-pollution simulation.
-        # List the 0-based node indices that act as polluters.
-        'data_pollution_node_ids': [ ],
-        # Probability [0.0, 1.0] that a polluter reports fake metrics.
+        'data_pollution_node_ids': [],
         'data_pollution_prob': 1.0,
         'data_pollution_strategy': 'random_scale',
     }
@@ -394,10 +377,10 @@ def _parse_current_node_from_logs(log_dir='../../logs'):
 
 
 def _get_nodes_from_fab_info():
-    """Get node metadata (name, region, ip) from InstanceManager/fab info."""
+    """Get node metadata (name, region, ip) from CloudLab InstanceManager/fab info."""
     manager = InstanceManager.make()
-    # Reuse the same source as `fab info` (running/staging instances).
-    ids_by_region, ips_by_region = manager._get(['STAGING', 'RUNNING'])
+    # GCP: ids_by_region, ips_by_region = manager._get(['STAGING', 'RUNNING'])
+    ids_by_region, ips_by_region = manager._get()
 
     nodes = []
     for region in sorted(ips_by_region.keys()):
@@ -433,7 +416,29 @@ def _detect_current_node_from_fab_info(nodes):
     for node in nodes:
         if node["ip"] in local_ips:
             return node
-    return None
+
+    # CloudLab often runs fab from a control node (e.g. 10.10.1.1 / node0)
+    # that is not listed in cloudlab_settings hosts. Prefer the experiment LAN.
+    preferred = sorted(
+        local_ips,
+        key=lambda ip: (0 if ip.startswith('10.') else 1, ip),
+    )[0]
+    return {
+        "name": socket.gethostname().split('.')[0],
+        "region": "local",
+        "ip": preferred,
+    }
+
+
+def _ssh_connect_settings():
+    """Load SSH key/username from cloudlab_settings.json."""
+    settings = InstanceManager.make().settings
+    password = settings.ssh_key_password or os.environ.get('SSH_KEY_PASSWORD')
+    if password:
+        pkey = RSAKey.from_private_key_file(settings.key_path, password=password)
+    else:
+        pkey = RSAKey.from_private_key_file(settings.key_path)
+    return settings.username, pkey
 
 @task
 def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
@@ -456,7 +461,9 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     from benchmark.utils import Print
 
     try:
-        ctx.connect_kwargs.pkey = RSAKey.from_private_key_file("/home/ccclr0302/.ssh/gcp_rsa")
+        # GCP: ctx.connect_kwargs.pkey = RSAKey.from_private_key_file("/home/ccclr0302/.ssh/gcp_rsa")
+        username, pkey = _ssh_connect_settings()
+        ctx.connect_kwargs.pkey = pkey
         connect_kwargs = ctx.connect_kwargs
     except (IOError, SSHException) as e:
         Print.error(f"Failed to load SSH key: {e}")
@@ -511,7 +518,8 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         for _ in range(repeat):
             try:
                 # Note: We connect to dst_ip but the source is determined by which machine we're running on
-                conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+                # GCP: conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+                conn = Connection(host=dst_ip, user=username, connect_kwargs=connect_kwargs)
                 conn.run("echo warmup", hide=True, timeout=5)
                 start = time.time()
                 conn.run("echo hello", hide=True, timeout=5)
@@ -719,7 +727,9 @@ def bandwidth(ctx, source_node=None, duration=8, parallel=4):
     from benchmark.utils import Print
 
     try:
-        ctx.connect_kwargs.pkey = RSAKey.from_private_key_file("/home/ccclr0302/.ssh/gcp_rsa")
+        # GCP: ctx.connect_kwargs.pkey = RSAKey.from_private_key_file("/home/ccclr0302/.ssh/gcp_rsa")
+        username, pkey = _ssh_connect_settings()
+        ctx.connect_kwargs.pkey = pkey
         connect_kwargs = ctx.connect_kwargs
     except (IOError, SSHException) as e:
         Print.error(f"Failed to load SSH key: {e}")
@@ -773,7 +783,8 @@ def bandwidth(ctx, source_node=None, duration=8, parallel=4):
                 return np.nan
 
             # Start iperf3 server on destination
-            dst_conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+            # GCP: dst_conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+            dst_conn = Connection(host=dst_ip, user=username, connect_kwargs=connect_kwargs)
             try:
                 dst_conn.run("which iperf3", hide=True)
             except:
@@ -867,7 +878,8 @@ def bandwidth(ctx, source_node=None, duration=8, parallel=4):
     measured_count = 0
 
     # Connect to source node for running client
-    src_conn = Connection(host=current_node_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+    # GCP: src_conn = Connection(host=current_node_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
+    src_conn = Connection(host=current_node_ip, user=username, connect_kwargs=connect_kwargs)
 
     for target_name, target_ip in target_nodes:
         bandwidth = measure_iperf3_bandwidth(src_conn, target_ip, duration=duration, parallel=parallel)

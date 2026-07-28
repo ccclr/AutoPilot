@@ -17,7 +17,7 @@ from benchmark.config import Committee, Key, NodeParameters, BenchParameters, Co
 from benchmark.utils import BenchError, Print, PathMaker, progress_bar
 from benchmark.commands import CommandMaker
 from benchmark.logs import LogParser, ParseError
-from benchmark.gcp_instance import InstanceManager
+from benchmark.cloudlab_instance import CloudLabInstanceManager
 
 
 class FabricError(Exception):
@@ -33,16 +33,22 @@ class ExecutionError(Exception):
     pass
 
 
-class Bench:
+class CloudLabBench:
     def __init__(self, ctx):
-        self.manager = InstanceManager.make()
+        self.manager = CloudLabInstanceManager.make()
         self.settings = self.manager.settings
-        self.home = f'/home/{self.settings.username}'
+        self.home = self.settings.home
         CommandMaker.set_home(self.home)
         try:
-            ctx.connect_kwargs.pkey = RSAKey.from_private_key_file(
-                self.manager.settings.key_path
-            )
+            password = self.settings.ssh_key_password or os.environ.get('SSH_KEY_PASSWORD')
+            if password:
+                ctx.connect_kwargs.pkey = RSAKey.from_private_key_file(
+                    self.manager.settings.key_path, password=password
+                )
+            else:
+                ctx.connect_kwargs.pkey = RSAKey.from_private_key_file(
+                    self.manager.settings.key_path
+                )
             self.connect = ctx.connect_kwargs
         except (IOError, PasswordRequiredException, SSHException) as e:
             raise BenchError('Failed to load SSH key', e)
@@ -90,9 +96,8 @@ class Bench:
         return env
 
     def install(self):
-        EXCLUDED_ZONES = ['us-central1-c'] 
-        manager = InstanceManager.make()
-        settings = manager.settings
+        EXCLUDED_ZONES = []
+        manager = CloudLabInstanceManager.make()
         hosts_dict = manager.hosts()
 
         filtered_hosts = {
@@ -101,12 +106,12 @@ class Bench:
         }
 
         all_nodes = [ip for nodes in filtered_hosts.values() for ip in nodes]
-        # Print(all_nodes)
 
         if not all_nodes:
             print("No hosts remaining after filtering.")
             return
         Print.info('Installing rust and cloning the repo...')
+        cargo_env = f'{self.home}/.cargo/env'
         cmd = [
             'sudo sed -i "/bullseye-backports/d" /etc/apt/sources.list',
             'sudo apt-get update',
@@ -120,13 +125,13 @@ class Bench:
             'sudo apt-get install -y iperf3 python3-pip python3-venv',
 
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
-            f'source {self.home}/.cargo/env',
+            f'source {cargo_env}',
             'rustup default stable',
 
             f'(git clone {self.settings.repo_url} {self.settings.repo_name} || (cd {self.settings.repo_name} && git pull --rebase))',
             f'(cd {self.settings.repo_name} && git checkout {self.settings.branch})',
 
-            f'(cd {self.settings.repo_name} && source {self.home}/.cargo/env && cargo build --release)',
+            f'(cd {self.settings.repo_name} && source {cargo_env} && cargo build --release)',
 
             f'ln -sf {self.settings.repo_name}/target/release/node ~/node',
             f'ln -sf {self.settings.repo_name}/target/release/benchmark_client ~/benchmark_client',
@@ -137,7 +142,7 @@ class Bench:
         try:
             g = Group(*hosts, user=self.settings.username, connect_kwargs=self.connect)
             g.run(' && '.join(cmd), hide=True)
-            Print.heading(f'Initialized testbed of {len(hosts)} nodes')
+            Print.heading(f'Initialized CloudLab testbed of {len(hosts)} nodes')
         except (GroupException, ExecutionError) as e:
             e = FabricError(e) if isinstance(e, GroupException) else e
             raise BenchError('Failed to install repo on testbed', e)
@@ -662,7 +667,7 @@ class Bench:
 
     def run(self, bench_parameters_dict, node_parameters_dict, debug=False):
         assert isinstance(debug, bool)
-        Print.heading('Starting remote benchmark')
+        Print.heading('Starting CloudLab remote benchmark')
         try:
             bench_parameters = BenchParameters(bench_parameters_dict)
             node_parameters = NodeParameters(node_parameters_dict)

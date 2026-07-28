@@ -7,7 +7,15 @@ from benchmark.utils import PathMaker
 
 
 class CommandMaker:
+    HOME = '/home/ccclr0302'
     AGENT_VENV_PATH = '/home/ccclr0302/autopilot-venv'
+
+    @classmethod
+    def set_home(cls, home):
+        """Set the remote/local home directory used by path-dependent commands."""
+        assert isinstance(home, str) and home
+        cls.HOME = home.rstrip('/')
+        cls.AGENT_VENV_PATH = f'{cls.HOME}/autopilot-venv'
 
     @staticmethod
     def agent_venv_python():
@@ -83,16 +91,17 @@ class CommandMaker:
 
     @staticmethod
     def clean_metrics(repo_name, node_id):
+        home = CommandMaker.HOME
         return (
-            f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_full_matrix_*.npy ; '
-            f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_region_matrix_*.npy ; '
-            f'rm -f /home/ccclr0302/{repo_name}/benchmark/latency_vector_*.npy ; '
-            # f'rm -rf /home/ccclr0302/{repo_name}/metrics-{node_id}; '
+            f'rm -f {home}/{repo_name}/benchmark/latency_full_matrix_*.npy ; '
+            f'rm -f {home}/{repo_name}/benchmark/latency_region_matrix_*.npy ; '
+            f'rm -f {home}/{repo_name}/benchmark/latency_vector_*.npy ; '
+            # f'rm -rf {home}/{repo_name}/metrics-{node_id}; '
             f'rm -f /tmp/autopilot_rl_param_*.sock ; '
             f'rm -f /tmp/autopilot_rl_param_abandon_*.signal ; '
             f'rm -f /tmp/autopilot_core_*.sock ; '
             f'rm -f /tmp/autopilot_controller_*.sock ; '
-            f'sudo rm -rf /home/ccclr0302/metrics-* /home/ccclr0302/{repo_name}/metrics-* || true'
+            f'sudo rm -rf {home}/metrics-* {home}/{repo_name}/metrics-* || true'
         )
 
     @staticmethod
@@ -189,7 +198,7 @@ class CommandMaker:
         assert isinstance(window_size, int) and window_size > 0
         # Use relative path from benchmark directory (../Agent/metrics_collector.py)
         # or absolute path if repo_name is provided
-        metrics_collector_path = f'/home/ccclr0302/{repo_name}/Agent/metrics_collector.py'
+        metrics_collector_path = f'{CommandMaker.HOME}/{repo_name}/Agent/metrics_collector.py'
         socket_path = f'/tmp/autopilot_core_{node_index}.sock'
         python = CommandMaker.agent_python(python_bin)
         cmd = f'RUST_STATE_SOCKET_PATH={socket_path} {python} {metrics_collector_path}'
@@ -209,11 +218,11 @@ class CommandMaker:
         resume_from=None,
     ):
         """Generate command to run controller as a background process"""
-        controller_path = f'/home/ccclr0302/{repo_name}/Agent/rl/controllers/controller.py'
-        # update_parameters_path = f'/home/ccclr0302/{repo_name}/Agent/update_parameters_{node_index}.json'
+        controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
+        # update_parameters_path = f'{CommandMaker.HOME}/{repo_name}/Agent/update_parameters_{node_index}.json'
         python = CommandMaker.agent_python(python_bin)
         cmd = f'{python} {controller_path}'
-        cmd += f' --metrics-dir /home/ccclr0302/metrics-{node_index}'
+        cmd += f' --metrics-dir {CommandMaker.HOME}/metrics-{node_index}'
         cmd += f' --node-index {node_index}'
         cmd += f' --log-dir {log_dir}'
         cmd += f' --parameters-file {parameters_file}'
