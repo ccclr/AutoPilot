@@ -144,11 +144,14 @@ AutoPilot/
 │
 ├── benchmark/              # Benchmarking & deployment
 │   ├── fabfile.py          # Fabric tasks for local/remote experiments
-│   ├── requirements.txt     # Python dependencies
 │   ├── settings.json        # Cloud deployment config
 │   ├── analyze_logs.py      # Result parsing
 │   ├── plot_latencies.py    # Visualization
 │   └── README.md            # Detailed benchmark guide
+│
+├── script/                 # Setup scripts & Python deps
+│   ├── env.sh               # Environment bootstrap
+│   └── requirements.txt     # Benchmark Python dependencies
 │
 ├── store/                  # Persistent storage (RocksDB)
 │   └── ...
@@ -175,7 +178,7 @@ An install script is provided for convenience:
 
 ```bash
 ./install_deps.sh
-pip install -r benchmark/requirements.txt
+pip install -r script/requirements.txt
 pip install numpy scikit-learn joblib psutil
 ```
 
@@ -302,7 +305,7 @@ git checkout main  # or appropriate branch
 
 # Install dependencies
 ./install_deps.sh
-pip install -r benchmark/requirements.txt
+pip install -r script/requirements.txt
 pip install numpy scikit-learn joblib psutil
 
 # Generate SSH keys for GCP communication
