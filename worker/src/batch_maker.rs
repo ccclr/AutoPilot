@@ -319,24 +319,24 @@ impl BatchMaker {
             );
 
             // Log batch creation with detailed information
-            info!(
-                "BatchMaker: Created batch {:?} with {} transactions, size={}B, timestamp={}μs",
-                digest,
-                batch.len(),
-                size,
-                batch_timestamp
-            );
+            // info!(
+            //     "BatchMaker: Created batch {:?} with {} transactions, size={}B, timestamp={}μs",
+            //     digest,
+            //     batch.len(),
+            //     size,
+            //     batch_timestamp
+            // );
 
-            // Log individual transactions in the batch
-            for (tx_idx, tx) in batch.iter().enumerate() {
-                let tx_age_us = batch_timestamp.saturating_sub(tx.created_at.try_into().unwrap());
-                let tx_age_ms = tx_age_us as f64 / 1000.0;
+            // // Log individual transactions in the batch
+            // for (tx_idx, tx) in batch.iter().enumerate() {
+            //     let tx_age_us = batch_timestamp.saturating_sub(tx.created_at.try_into().unwrap());
+            //     let tx_age_ms = tx_age_us as f64 / 1000.0;
 
-                info!(
-                    "  Batch[{:?}] Tx[{}]: size={}B, created_at={}μs, batch_age={:.2}ms",
-                    digest, tx_idx, tx.size, tx.created_at, tx_age_ms
-                );
-            }
+            //     info!(
+            //         "  Batch[{:?}] Tx[{}]: size={}B, created_at={}μs, batch_age={:.2}ms",
+            //         digest, tx_idx, tx.size, tx.created_at, tx_age_ms
+            //     );
+            // }
 
             // Log sample transaction IDs (for performance analysis)
             for &id in &sample_tx_ids {
@@ -363,8 +363,8 @@ impl BatchMaker {
                 .sum::<f64>()
                 / batch.len() as f64;
 
-            info!("Batch[{:?}] stats: total_tx_size={}B, avg_tx_size={:.1}B, avg_tx_age={:.2}ms, sample_txs={}",
-                  digest, total_tx_size, avg_tx_size, avg_tx_age, sample_tx_ids.len());
+            // info!("Batch[{:?}] stats: total_tx_size={}B, avg_tx_size={:.1}B, avg_tx_age={:.2}ms, sample_txs={}",
+            //       digest, total_tx_size, avg_tx_size, avg_tx_age, sample_tx_ids.len());
 
             // Log batch creation event to metrics.log
             if let Some(mut logger_guard) = get_metrics_logger() {
