@@ -1,70 +1,70 @@
 {
     "authorities": {
-        "HUcVDdNcePiGWZkwU7UoDgI1Fbh1ARTj7o3uoKrlif0=": {
+        "+IGFBhlSZxDd0mG3GHbGAUCycI9RlkN+CX0L61LrRW8=": {
             "consensus": {
-                "consensus_to_consensus": "10.170.0.2:5000"
+                "consensus_to_consensus": "10.10.1.3:5006"
             },
             "primary": {
-                "primary_to_primary": "10.170.0.2:5001",
-                "worker_to_primary": "10.170.0.2:5002"
+                "primary_to_primary": "10.10.1.3:5007",
+                "worker_to_primary": "10.10.1.3:5008"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "10.170.0.2:5003",
-                    "transactions": "10.170.0.2:5004",
-                    "worker_to_worker": "10.170.0.2:5005"
+                    "primary_to_worker": "10.10.1.3:5009",
+                    "transactions": "10.10.1.3:5010",
+                    "worker_to_worker": "10.10.1.3:5011"
                 }
             }
         },
-        "SpuDJZscdcHSSLq2epDThENxpld7cHwgW0bO2pfGhCo=": {
+        "/QEWOsy4VesWXKDn0z8WJpx00SlzspRYH3n6+PtExos=": {
             "consensus": {
-                "consensus_to_consensus": "10.170.0.9:5018"
+                "consensus_to_consensus": "10.10.1.1:5000"
             },
             "primary": {
-                "primary_to_primary": "10.170.0.9:5019",
-                "worker_to_primary": "10.170.0.9:5020"
+                "primary_to_primary": "10.10.1.1:5001",
+                "worker_to_primary": "10.10.1.1:5002"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "10.170.0.9:5021",
-                    "transactions": "10.170.0.9:5022",
-                    "worker_to_worker": "10.170.0.9:5023"
+                    "primary_to_worker": "10.10.1.1:5003",
+                    "transactions": "10.10.1.1:5004",
+                    "worker_to_worker": "10.10.1.1:5005"
                 }
             }
         },
-        "ZB4v6N96xCoDSNDUimcXYOMOsZuaL5gkN4f01/ERtgw=": {
+        "UoiVrGy5tyUL2HjNCnnTVPlIIAuTXKZMedyGJlzORtE=": {
             "consensus": {
-                "consensus_to_consensus": "10.128.0.2:5012"
+                "consensus_to_consensus": "10.10.1.5:5018"
             },
             "primary": {
-                "primary_to_primary": "10.128.0.2:5013",
-                "worker_to_primary": "10.128.0.2:5014"
+                "primary_to_primary": "10.10.1.5:5019",
+                "worker_to_primary": "10.10.1.5:5020"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "10.128.0.2:5015",
-                    "transactions": "10.128.0.2:5016",
-                    "worker_to_worker": "10.128.0.2:5017"
+                    "primary_to_worker": "10.10.1.5:5021",
+                    "transactions": "10.10.1.5:5022",
+                    "worker_to_worker": "10.10.1.5:5023"
                 }
             }
         },
-        "saX3Q29T+kJJGQs3Xt6Gj0dCSXm7irNVph0sWZUsYjY=": {
+        "zVyuU/gga0pUO/RF6oSP7XCDv767jDpsf+liCqvplsQ=": {
             "consensus": {
-                "consensus_to_consensus": "10.170.0.3:5006"
+                "consensus_to_consensus": "10.10.1.4:5012"
             },
             "primary": {
-                "primary_to_primary": "10.170.0.3:5007",
-                "worker_to_primary": "10.170.0.3:5008"
+                "primary_to_primary": "10.10.1.4:5013",
+                "worker_to_primary": "10.10.1.4:5014"
             },
             "stake": 1,
             "workers": {
                 "0": {
-                    "primary_to_worker": "10.170.0.3:5009",
-                    "transactions": "10.170.0.3:5010",
-                    "worker_to_worker": "10.170.0.3:5011"
+                    "primary_to_worker": "10.10.1.4:5015",
+                    "transactions": "10.10.1.4:5016",
+                    "worker_to_worker": "10.10.1.4:5017"
                 }
             }
         }

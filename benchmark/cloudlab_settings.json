@@ -13,7 +13,7 @@
     "home": "/users/clr0302",
     "hosts": [
         {
-            "hostname": "10.10.1.2",
+            "hostname": "10.10.1.1",
             "username": "clr0302",
             "port": 22,
             "region": "utah"

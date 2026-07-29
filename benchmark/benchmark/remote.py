@@ -126,10 +126,13 @@ class Bench:
             f'(git clone {self.settings.repo_url} {self.settings.repo_name} || (cd {self.settings.repo_name} && git pull --rebase))',
             f'(cd {self.settings.repo_name} && git checkout {self.settings.branch})',
 
-            f'(cd {self.settings.repo_name} && source {self.home}/.cargo/env && cargo build --release)',
+            f'(cd {self.settings.repo_name} && source {self.home}/.cargo/env && {CommandMaker.compile()})',
 
             f'ln -sf {self.settings.repo_name}/target/release/node ~/node',
             f'ln -sf {self.settings.repo_name}/target/release/benchmark_client ~/benchmark_client',
+
+            # Agent venv on every remote node (shared helper).
+            *CommandMaker.remote_agent_venv_setup_cmds(self.settings.repo_name),
         ]
 
         hosts = all_nodes
@@ -138,6 +141,7 @@ class Bench:
             g = Group(*hosts, user=self.settings.username, connect_kwargs=self.connect)
             g.run(' && '.join(cmd), hide=True)
             Print.heading(f'Initialized testbed of {len(hosts)} nodes')
+            Print.info(f'Agent venv ready on remotes: {CommandMaker.AGENT_VENV_PATH}')
         except (GroupException, ExecutionError) as e:
             e = FabricError(e) if isinstance(e, GroupException) else e
             raise BenchError('Failed to install repo on testbed', e)

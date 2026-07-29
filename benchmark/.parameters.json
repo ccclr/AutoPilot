@@ -3,7 +3,7 @@
         1
     ],
     "aggregation_strategy": "normal",
-    "applied_begin": 95,
+    "applied_begin": 20,
     "asynchrony_duration": [
         120
     ],
@@ -30,7 +30,7 @@
         0,
         0
     ],
-    "epoch_slots": 100,
+    "epoch_slots": 24,
     "fast_path_timeout": 100,
     "gc_depth": 50,
     "header_size": 32,
@@ -47,5 +47,5 @@
     "use_optimistic_tips": true,
     "use_parallel_proposals": true,
     "use_ride_share": false,
-    "window_size": 80
+    "window_size": 16
 }

@@ -3819,7 +3819,7 @@ impl Core {
 
     // Check for parameter updates from .parameters.json file by compsaring current values with file values
     fn read_parameters_file(&self) -> Option<serde_json::Value> {
-        let parameters_path = "/home/ccclr0302/.parameters.json";
+        let parameters_path = ".parameters.json";
         debug!("parameters path is {:?}", parameters_path);
         match fs::read_to_string(&parameters_path) {
             Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
@@ -4567,7 +4567,7 @@ impl Core {
             "state_4_lane_vector": lane_global
         });
 
-        let out_dir = format!("/home/ccclr0302/metrics-{}/", node_index);
+        let out_dir = format!("metrics-{}/", node_index);
         if let Err(e) = tokio::fs::create_dir_all(&out_dir).await {
             warn!(
                 "Failed to create robust state output dir {}: {}",
