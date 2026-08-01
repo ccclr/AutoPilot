@@ -361,9 +361,18 @@ class BenchParameters:
                     raise ConfigError('hotspot_nodes must be positive integers')
 
                 # Required: per-window per-region hotspot rates.
-                # Format example:
-                # hotspot_regions      = [['asia-east2-a', 'us-central1-c']]
-                # hotspot_region_rates = [[0.9, 0.6]]
+                # Aligned with egress_penalty nesting:
+                #   asynchrony_regions = [['utah']]
+                #   asynchrony_nodes   = [2]
+                #   egress_penalty     = [[[200, 300]]]   # window -> region -> per-node
+                #
+                # Hotspot equivalents:
+                #   hotspot_regions      = [['utah']]
+                #   hotspot_nodes        = [[3]]
+                #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]  # window -> region -> per-node
+                #
+                # Backward compatible scalar-per-region form is still accepted:
+                #   hotspot_region_rates = [[0.9, 0.6]]
                 self.hotspot_region_rates = json.get('hotspot_region_rates', [])
                 if not isinstance(self.hotspot_region_rates, list):
                     raise ConfigError('hotspot_region_rates must be a list')
@@ -380,9 +389,40 @@ class BenchParameters:
                         raise ConfigError(
                             'hotspot_region_rates[window] length must match hotspot_regions[window] length'
                         )
-                    if not all(isinstance(x, (int, float)) and x >= 0 for x in rates):
-                        raise ConfigError('hotspot_region_rates values must be non-negative numbers')
-                    normalized_region_rates.append([float(x) for x in rates])
+
+                    region_node_counts = self.hotspot_nodes[w]
+                    if isinstance(region_node_counts, int):
+                        region_node_counts = [region_node_counts] * len(self.hotspot_regions[w])
+
+                    normalized_window = []
+                    for r_idx, rate_or_list in enumerate(rates):
+                        n_pick = region_node_counts[r_idx] if r_idx < len(region_node_counts) else 0
+                        if isinstance(rate_or_list, (int, float)):
+                            if rate_or_list < 0:
+                                raise ConfigError(
+                                    'hotspot_region_rates values must be non-negative numbers'
+                                )
+                            # Scalar rate: broadcast to all picked nodes in this region.
+                            normalized_window.append([float(rate_or_list)] * n_pick)
+                        elif isinstance(rate_or_list, list):
+                            if len(rate_or_list) != n_pick:
+                                raise ConfigError(
+                                    'hotspot_region_rates[window][region] length must match '
+                                    f'hotspot_nodes[window][region] ({n_pick})'
+                                )
+                            if not all(
+                                isinstance(x, (int, float)) and x >= 0 for x in rate_or_list
+                            ):
+                                raise ConfigError(
+                                    'hotspot_region_rates values must be non-negative numbers'
+                                )
+                            normalized_window.append([float(x) for x in rate_or_list])
+                        else:
+                            raise ConfigError(
+                                'hotspot_region_rates[window][region] must be a number '
+                                'or a list of per-node rates'
+                            )
+                    normalized_region_rates.append(normalized_window)
                 self.hotspot_region_rates = normalized_region_rates
             else:
                 self.hotspot_windows = []

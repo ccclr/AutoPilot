@@ -189,11 +189,15 @@ def remote(ctx, debug=False):
         'partition_duration': 5,
         'partition_nodes': 2,
 
-        'enable_hotspot': False,
+        # Hotspot nesting aligned with asynchrony/egress_penalty:
+        #   hotspot_regions      = [['utah']]
+        #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
+        #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
+        'enable_hotspot': True,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
-        'hotspot_nodes': [[1]],
-        'hotspot_region_rates': [[0.5]],
+        'hotspot_nodes': [[3]],
+        'hotspot_region_rates': [[[0.5, 0.5, 0.3]]],
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -209,7 +213,7 @@ def remote(ctx, debug=False):
         'k': 4,
         'epoch_slots': 24,
         'window_size': 12,
-        'applied_begin': 20,
+        'applied_begin': 22,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
@@ -217,14 +221,14 @@ def remote(ctx, debug=False):
         'cut_condition_type': 3,
 
         'simulate_asynchrony': True,
-        'asynchrony_type': [4],
+        'asynchrony_type': [6],
 
         'asynchrony_start': [0],  # s
         'asynchrony_duration': [3000],  # s
         'affected_nodes': [1],
-        'asynchrony_nodes': [3],
+        'asynchrony_nodes': [2],
         'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[50, 100, 200]]],
+        'egress_penalty': [[[200, 300]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,

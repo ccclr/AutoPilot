@@ -420,11 +420,28 @@ class CloudLabBench:
                                           if node_regions[i].lower() == r.lower()]
                             picked = nodes_in_r[:n_pick]
                             ids.extend(picked)
-                            per_region_rate = (
-                                region_rates[r_idx] if r_idx < len(region_rates) else 0.0
+                            # hotspot_region_rates[w][r] is a per-node list
+                            # (aligned with egress_penalty[w][r]).
+                            per_node_rates = (
+                                region_rates[r_idx] if r_idx < len(region_rates) else []
                             )
-                            rates.extend([per_region_rate] * len(picked))
-                            Print.info(f'  Window {w+1}: region "{r}" has nodes {nodes_in_r}, pick first {n_pick} => {picked}')
+                            if isinstance(per_node_rates, list):
+                                if len(per_node_rates) != len(picked):
+                                    raise BenchError(
+                                        'Mismatch between hotspot nodes and rates',
+                                        ValueError(
+                                            f'Window {w}, region {r}: picked {len(picked)} nodes '
+                                            f'but {len(per_node_rates)} rates provided'
+                                        )
+                                    )
+                                rates.extend([float(x) for x in per_node_rates])
+                            else:
+                                rates.extend([float(per_node_rates)] * len(picked))
+                            Print.info(
+                                f'  Window {w+1}: region "{r}" has nodes {nodes_in_r}, '
+                                f'pick first {n_pick} => {picked} with rates '
+                                f'{per_node_rates if isinstance(per_node_rates, list) else [per_node_rates] * len(picked)}'
+                            )
                         hotspot_node_ids_per_window.append(ids)
                         hotspot_node_rates_per_window.append(rates)
                         Print.info(f'  Window {w+1}: hotspot node ids = {ids}')
@@ -434,8 +451,17 @@ class CloudLabBench:
                         n_total = sum(n_counts) if isinstance(n_counts, list) else n_counts
                         hotspot_node_ids_per_window.append(list(range(n_total)))
                         region_rates = hotspot_region_rates[w] if w < len(hotspot_region_rates) else []
-                        fallback_rate = region_rates[0] if region_rates else 0.0
-                        hotspot_node_rates_per_window.append([fallback_rate] * n_total)
+                        flat_rates = []
+                        for entry in region_rates:
+                            if isinstance(entry, list):
+                                flat_rates.extend([float(x) for x in entry])
+                            else:
+                                flat_rates.append(float(entry))
+                        if len(flat_rates) == n_total:
+                            hotspot_node_rates_per_window.append(flat_rates)
+                        else:
+                            fallback_rate = flat_rates[0] if flat_rates else 0.0
+                            hotspot_node_rates_per_window.append([fallback_rate] * n_total)
                         Print.info(f'  Window {w+1}: no regions specified, use node indices 0..{n_total-1}')
                 hotspot_config['hotspot_node_ids_per_window'] = hotspot_node_ids_per_window
                 hotspot_config['hotspot_node_rates_per_window'] = hotspot_node_rates_per_window
@@ -457,8 +483,17 @@ class CloudLabBench:
                     ids = list(range(n_total))
                     hotspot_node_ids_per_window.append(ids)
                     region_rates = hotspot_region_rates[w] if w < len(hotspot_region_rates) else []
-                    fallback_rate = region_rates[0] if region_rates else 0.0
-                    hotspot_node_rates_per_window.append([fallback_rate] * len(ids))
+                    flat_rates = []
+                    for entry in region_rates:
+                        if isinstance(entry, list):
+                            flat_rates.extend([float(x) for x in entry])
+                        else:
+                            flat_rates.append(float(entry))
+                    if len(flat_rates) == len(ids):
+                        hotspot_node_rates_per_window.append(flat_rates)
+                    else:
+                        fallback_rate = flat_rates[0] if flat_rates else 0.0
+                        hotspot_node_rates_per_window.append([fallback_rate] * len(ids))
                     Print.info(f'  Window {w+1}: hotspot nodes = first {n_total} (indices 0..{n_total-1})')
                 hotspot_config['hotspot_node_ids_per_window'] = hotspot_node_ids_per_window
                 hotspot_config['hotspot_node_rates_per_window'] = hotspot_node_rates_per_window

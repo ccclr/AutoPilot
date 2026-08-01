@@ -3,7 +3,7 @@
         1
     ],
     "aggregation_strategy": "normal",
-    "applied_begin": 20,
+    "applied_begin": 22,
     "asynchrony_duration": [
         3000
     ],
@@ -25,7 +25,7 @@
         0
     ],
     "asynchrony_type": [
-        4
+        6
     ],
     "batch_size": 500000,
     "car_timeout": 2000,
@@ -36,7 +36,7 @@
     "egress_penalty": 0,
     "egress_penalty_per_node": [
         100,
-        200,
+        300,
         0,
         0
     ],
