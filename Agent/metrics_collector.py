@@ -54,6 +54,37 @@ def _sanitize_floats_for_json(value: Any) -> Any:
         return normalized if math.isfinite(normalized) else 0.0
     return value
 
+
+def _parse_iso_timestamp(ts_str: str) -> float:
+    """Parse ISO timestamps from metrics logs into unix seconds.
+
+    Rust emits nanosecond fractional seconds (9 digits). Python's
+    datetime.fromisoformat only accepts up to microseconds (6 digits),
+    so truncate before parsing.
+    """
+    from datetime import datetime
+
+    if ts_str.endswith('Z'):
+        ts_str = ts_str[:-1] + '+00:00'
+
+    if '.' in ts_str:
+        parts = ts_str.split('.')
+        if len(parts) == 2:
+            frac = parts[1]
+            tz_start = -1
+            for i, c in enumerate(frac):
+                if c in '+-':
+                    tz_start = i
+                    break
+            if tz_start > 0:
+                microseconds = frac[:tz_start][:6]
+                timezone = frac[tz_start:]
+                ts_str = f"{parts[0]}.{microseconds}{timezone}"
+            elif len(frac) > 6:
+                ts_str = f"{parts[0]}.{frac[:6]}"
+
+    return datetime.fromisoformat(ts_str).timestamp()
+
 class MetricsLogger:
     """Dedicated logger for metrics events to reduce I/O overhead"""
 
@@ -1309,22 +1340,25 @@ class MetricsCollector:
                 )
                 
                 if batch_commit_events:
-                    from datetime import datetime
                     for event in batch_commit_events:
                         try:
-                            # Parse timestamp
-                            ts_str = event.timestamp
-                            if not ts_str.endswith('Z'):
-                                ts_str = ts_str.replace('+00:00', 'Z')
-                            dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-                            ts = dt.timestamp()
+                            ts = _parse_iso_timestamp(event.timestamp)
                             window_start_time = min(window_start_time, ts)
                             window_end_time = max(window_end_time, ts)
-                        except Exception as e:
+                        except Exception:
                             continue
-                    
+
                     if window_start_time != float('inf'):
-                        logger.info(f"📅 Time window from batch_commit events: [{window_start_time:.3f}, {window_end_time:.3f}] ({window_end_time - window_start_time:.3f}s)")
+                        logger.info(
+                            f"📅 Time window from batch_commit events: "
+                            f"[{window_start_time:.3f}, {window_end_time:.3f}] "
+                            f"({window_end_time - window_start_time:.3f}s)"
+                        )
+                    else:
+                        logger.warning(
+                            "No parseable batch_commit timestamps in slot window "
+                            f"[{slot_start}, {slot_end}); window_duration will be 0"
+                        )
             except Exception as e:
                 logger.debug(f"Failed to get time window from batch_commit events: {e}")
 
@@ -1367,7 +1401,10 @@ class MetricsCollector:
                     epoch_consensus_metrics = ConsensusMetrics(0.0, 0.0, 0.0)
 
             # others
-            window_duration = window_end_time - window_start_time
+            if window_start_time != float('inf') and window_end_time >= window_start_time:
+                window_duration = window_end_time - window_start_time
+            else:
+                window_duration = 0.0
 
             return SystemState(
                 timestamp=time.time(),

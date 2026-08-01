@@ -172,15 +172,15 @@ def remote(ctx, debug=False):
         'nodes': [4],
         'workers': 1,
         'collocate': True,
-        'rate': [40_000],
+        'rate': [60_000],
         'tx_size': 512,
-        'duration': 60,
+        'duration': 3000,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
         # RL algorithm: "cmab" or "gp_bo"
-        'rl_algo': 'cmab',
+        'rl_algo': 'gp_bo',
         'rl_warmup_iterations': 5,
 
         # Unused
@@ -189,11 +189,11 @@ def remote(ctx, debug=False):
         'partition_duration': 5,
         'partition_nodes': 2,
 
-        'enable_hotspot': False,
-        'hotspot_windows': [[0, 120]],
+        'enable_hotspot': True,
+        'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[1]],
-        'hotspot_region_rates': [[0.9]],
+        'hotspot_region_rates': [[0.5]],
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -207,24 +207,24 @@ def remote(ctx, debug=False):
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 24,
-        'window_size': 16,
-        'applied_begin': 20,
+        'epoch_slots': 20,
+        'window_size': 12,
+        'applied_begin': 18,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
         'car_timeout': 2000,
         'cut_condition_type': 3,
 
-        'simulate_asynchrony': False,
-        'asynchrony_type': [6],
+        'simulate_asynchrony': True,
+        'asynchrony_type': [4],
 
         'asynchrony_start': [0],  # s
-        'asynchrony_duration': [120],  # s
+        'asynchrony_duration': [3000],  # s
         'affected_nodes': [1],
-        'asynchrony_nodes': [],
-        'asynchrony_regions': [[]],
-        'egress_penalty': [[]],
+        'asynchrony_nodes': [2],
+        'asynchrony_regions': [['utah']],
+        'egress_penalty': [[[100, 300]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,

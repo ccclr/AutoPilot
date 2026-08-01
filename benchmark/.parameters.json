@@ -3,13 +3,23 @@
         1
     ],
     "aggregation_strategy": "normal",
-    "applied_begin": 20,
+    "applied_begin": 18,
     "asynchrony_duration": [
-        120
+        3000
     ],
-    "asynchrony_nodes": [],
+    "asynchrony_node_ids_per_window": [
+        [
+            0,
+            1
+        ]
+    ],
+    "asynchrony_nodes": [
+        2
+    ],
     "asynchrony_regions": [
-        []
+        [
+            "utah"
+        ]
     ],
     "asynchrony_start": [
         0
@@ -25,19 +35,19 @@
     "data_pollution_strategy": "random_scale",
     "egress_penalty": 0,
     "egress_penalty_per_node": [
-        0,
-        0,
+        100,
+        300,
         0,
         0
     ],
-    "epoch_slots": 24,
+    "epoch_slots": 20,
     "fast_path_timeout": 100,
     "gc_depth": 50,
     "header_size": 32,
     "k": 4,
     "max_batch_delay": 5000,
     "max_header_delay": 5000,
-    "simulate_asynchrony": false,
+    "simulate_asynchrony": true,
     "sync_retry_delay": 5000,
     "sync_retry_nodes": 3,
     "timeout_delay": 5000,
@@ -47,5 +57,5 @@
     "use_optimistic_tips": true,
     "use_parallel_proposals": true,
     "use_ride_share": false,
-    "window_size": 16
+    "window_size": 12
 }
