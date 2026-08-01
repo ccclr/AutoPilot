@@ -165,7 +165,7 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=False):
+def remote(ctx, debug=True):
     ''' Run benchmarks on CloudLab '''
     bench_params = {
         'faults': 0,
@@ -197,7 +197,7 @@ def remote(ctx, debug=False):
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[3]],
-        'hotspot_region_rates': [[[0.5, 0.5, 0.3]]],
+        'hotspot_region_rates': [[[0.5, 0.3, 0.3]]],
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -211,9 +211,9 @@ def remote(ctx, debug=False):
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 24,
-        'window_size': 12,
-        'applied_begin': 22,
+        'epoch_slots': 32,
+        'window_size': 16,
+        'applied_begin': 30,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
@@ -225,10 +225,10 @@ def remote(ctx, debug=False):
 
         'asynchrony_start': [0],  # s
         'asynchrony_duration': [3000],  # s
-        'affected_nodes': [1],
+        'affected_nodes': [2],
         'asynchrony_nodes': [2],
         'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[200, 300]]],
+        'egress_penalty': [[[50, 100]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
