@@ -172,7 +172,7 @@ def remote(ctx, debug=False):
         'nodes': [4],
         'workers': 1,
         'collocate': True,
-        'rate': [60_000],
+        'rate': [40_000],
         'tx_size': 512,
         'duration': 3000,
         'runs': 1,
@@ -189,7 +189,7 @@ def remote(ctx, debug=False):
         'partition_duration': 5,
         'partition_nodes': 2,
 
-        'enable_hotspot': True,
+        'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[1]],
@@ -207,9 +207,9 @@ def remote(ctx, debug=False):
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 20,
+        'epoch_slots': 24,
         'window_size': 12,
-        'applied_begin': 18,
+        'applied_begin': 20,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
@@ -222,9 +222,9 @@ def remote(ctx, debug=False):
         'asynchrony_start': [0],  # s
         'asynchrony_duration': [3000],  # s
         'affected_nodes': [1],
-        'asynchrony_nodes': [2],
+        'asynchrony_nodes': [3],
         'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[100, 300]]],
+        'egress_penalty': [[[50, 100, 200]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,

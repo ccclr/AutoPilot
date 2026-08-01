@@ -3,7 +3,7 @@
         1
     ],
     "aggregation_strategy": "normal",
-    "applied_begin": 18,
+    "applied_begin": 20,
     "asynchrony_duration": [
         3000
     ],
@@ -25,7 +25,7 @@
         0
     ],
     "asynchrony_type": [
-        6
+        4
     ],
     "batch_size": 500000,
     "car_timeout": 2000,
@@ -36,11 +36,11 @@
     "egress_penalty": 0,
     "egress_penalty_per_node": [
         100,
-        300,
+        200,
         0,
         0
     ],
-    "epoch_slots": 20,
+    "epoch_slots": 24,
     "fast_path_timeout": 100,
     "gc_depth": 50,
     "header_size": 32,
