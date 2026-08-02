@@ -220,7 +220,7 @@ def remote(ctx, debug=True):
         'car_timeout': 2000,
         'cut_condition_type': 3,
 
-        'simulate_asynchrony': True,
+        'simulate_asynchrony': False,
         'asynchrony_type': [6],
 
         'asynchrony_start': [0],  # s
