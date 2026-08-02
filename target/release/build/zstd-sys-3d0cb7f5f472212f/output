@@ -771,6 +771,6 @@ ARFLAGS_x86_64_unknown_linux_gnu = None
 cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
 ARFLAGS_x86_64-unknown-linux-gnu = None
 cargo:rustc-link-lib=static=zstd
-cargo:rustc-link-search=native=/users/clr0302/autopilot/target/release/build/zstd-sys-3d0cb7f5f472212f/out
-cargo:root=/users/clr0302/autopilot/target/release/build/zstd-sys-3d0cb7f5f472212f/out
-cargo:include=/users/clr0302/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/zstd/lib
+cargo:rustc-link-search=native=/local/autopilot/target/release/build/zstd-sys-3d0cb7f5f472212f/out
+cargo:root=/local/autopilot/target/release/build/zstd-sys-3d0cb7f5f472212f/out
+cargo:include=/local/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/zstd/lib

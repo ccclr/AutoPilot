@@ -232,6 +232,7 @@ class CommandMaker:
         cmd += f' --node-index {node_index}'
         cmd += f' --log-dir {log_dir}'
         cmd += f' --parameters-file {parameters_file}'
+        cmd += f' --metrics-dir {CommandMaker.HOME}/metrics-{node_index}'
         return cmd
 
     @staticmethod

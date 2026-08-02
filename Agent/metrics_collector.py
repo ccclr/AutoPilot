@@ -240,16 +240,26 @@ class SystemState:
 class MetricsCollector:
     """Main class for metrics/parameter collection"""
 
-    def __init__(self, log_dir: str, node_index: Optional[int] = None, parameters_file: Optional[str] = None):
+    def __init__(
+        self,
+        log_dir: str,
+        node_index: Optional[int] = None,
+        parameters_file: Optional[str] = None,
+        metrics_dir: Optional[str] = None,
+    ):
         self.log_dir = Path(log_dir)
         self.node_index = node_index
         logger.info(f"📁 Using log directory: {self.log_dir}")
         logger.info(f"🔢 Using node index: {self.node_index}")
 
-        # Keep metrics output path consistent with controller's --metrics-dir.
-        # Use home directory to avoid repo directory ownership/permission issues.
-        self.output_dir = Path.home() / f"metrics-{self.node_index}"
+        # Prefer explicit --metrics-dir (aligned with controller / settings.home).
+        # Fallback keeps old Path.home() behavior for manual runs.
+        if metrics_dir:
+            self.output_dir = Path(metrics_dir)
+        else:
+            self.output_dir = Path.home() / f"metrics-{self.node_index}"
         self.output_dir.mkdir(exist_ok=True, parents=True)
+        logger.info(f"📂 Using metrics output directory: {self.output_dir}")
 
         self.parameters_file = Path(parameters_file) if parameters_file else None
 
@@ -1946,10 +1956,15 @@ class MetricsCollector:
 def main(epoch_slots: int = 20, window_size: int = 5, committed_slot: Optional[int] = None,
          node_index: Optional[int] = None, log_dir: Optional[str] = None,
          parameters_file: Optional[str] = None, clear_metrics_every: Optional[int] = None,
-         clear_metrics_log_path: Optional[str] = None):
+         clear_metrics_log_path: Optional[str] = None, metrics_dir: Optional[str] = None):
 
     # Create collector and configure cache settings
-    collector = MetricsCollector(log_dir=log_dir, node_index=node_index, parameters_file=parameters_file)
+    collector = MetricsCollector(
+        log_dir=log_dir,
+        node_index=node_index,
+        parameters_file=parameters_file,
+        metrics_dir=metrics_dir,
+    )
 
     # Optional: clear metrics log every N epochs
     clear_every = clear_metrics_every if clear_metrics_every and clear_metrics_every > 0 else None
@@ -2273,6 +2288,7 @@ if __name__ == "__main__":
     i = 1
     log_dir = None # Default log directory
     parameters_file = None
+    metrics_dir = None
     clear_metrics_every = 10
     clear_metrics_log_path = None
     while i < len(sys.argv):
@@ -2292,6 +2308,9 @@ if __name__ == "__main__":
             i += 1
         elif arg == "--parameters-file" and i + 1 < len(sys.argv):
             parameters_file = sys.argv[i + 1]
+            i += 1
+        elif arg == "--metrics-dir" and i + 1 < len(sys.argv):
+            metrics_dir = sys.argv[i + 1]
             i += 1
         elif arg == "--clear-metrics-every" and i + 1 < len(sys.argv):
             clear_metrics_every = int(sys.argv[i + 1])
@@ -2323,4 +2342,5 @@ if __name__ == "__main__":
     # Call main function with parsed parameters
     main(epoch_slots=epoch_slots, window_size=window_size, committed_slot=committed_slot,
          node_index=node_index, log_dir=log_dir, parameters_file=parameters_file,
-         clear_metrics_every=clear_metrics_every, clear_metrics_log_path=clear_metrics_log_path)
+         clear_metrics_every=clear_metrics_every, clear_metrics_log_path=clear_metrics_log_path,
+         metrics_dir=metrics_dir)

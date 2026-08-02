@@ -110,6 +110,6 @@ ARFLAGS_x86_64_unknown_linux_gnu = None
 cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
 ARFLAGS_x86_64-unknown-linux-gnu = None
 cargo:rustc-link-lib=static=lz4
-cargo:rustc-link-search=native=/users/clr0302/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out
-cargo:root=/users/clr0302/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out
-cargo:include=/users/clr0302/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out/include
+cargo:rustc-link-search=native=/local/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out
+cargo:root=/local/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out
+cargo:include=/local/autopilot/target/release/build/lz4-sys-2f1e1fff5f06e944/out/include
