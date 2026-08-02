@@ -1,1 +1,0 @@
-/local/autopilot/target/release/libnetwork.rlib: /local/autopilot/network/src/error.rs /local/autopilot/network/src/lib.rs /local/autopilot/network/src/receiver.rs /local/autopilot/network/src/reliable_sender.rs /local/autopilot/network/src/simple_sender.rs
