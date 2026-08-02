@@ -7,8 +7,9 @@ from benchmark.utils import PathMaker
 
 
 class CommandMaker:
-    HOME = '/users/clr0302'
-    AGENT_VENV_PATH = '/users/clr0302/autopilot-venv'
+    # Default matches cloudlab_settings.json "home"; runtime override via set_home().
+    HOME = '/local'
+    AGENT_VENV_PATH = '/local/autopilot-venv'
 
     @classmethod
     def set_home(cls, home):
@@ -88,6 +89,7 @@ class CommandMaker:
         """Shell commands to create the Agent venv on a remote host."""
         venv_path = CommandMaker.AGENT_VENV_PATH
         venv_python = CommandMaker.agent_venv_python()
+        # Parenthesize `|| true` so it cannot break a longer `cmd1 && cmd2 && ...` chain.
         return [
             'sudo apt-get update -qq',
             'sudo apt-get -y -qq install python3-pip python3-venv',
@@ -95,9 +97,12 @@ class CommandMaker:
                 f'if [ ! -x {venv_python} ]; then '
                 f'rm -rf {venv_path}; python3 -m venv {venv_path}; fi'
             ),
-            f'{venv_python} -m ensurepip --upgrade || true',
+            f'({venv_python} -m ensurepip --upgrade || true)',
             f'{venv_python} -m pip install -q --upgrade pip',
-            f'(cd {repo_name} && {venv_python} -m pip install -q -r Agent/requirements.txt)',
+            (
+                f'(cd {CommandMaker.HOME}/{repo_name} && '
+                f'{venv_python} -m pip install -q -r Agent/requirements.txt)'
+            ),
         ]
 
     @staticmethod
@@ -210,7 +215,7 @@ class CommandMaker:
     def alias_binaries(origin):
         assert isinstance(origin, str)
         node, client = join(origin, 'node'), join(origin, 'benchmark_client')
-        return f'rm node ; rm benchmark_client ; ln -s {node} . ; ln -s {client} .'
+        return f'rm -f node benchmark_client ; ln -s {node} . ; ln -s {client} .'
 
     @staticmethod
     def run_metrics_collector(epoch_slots, window_size, node_index=None, repo_name=None, log_dir=None, parameters_file=None, python_bin=None):

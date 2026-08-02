@@ -111,8 +111,13 @@ class CloudLabBench:
             print("No hosts remaining after filtering.")
             return
         Print.info('Installing rust and cloning the repo...')
-        cargo_env = f'{self.home}/.cargo/env'
+        cargo_home = f'{self.home}/.cargo'
+        rustup_home = f'{self.home}/.rustup'
+        cargo_env = f'{cargo_home}/env'
+        repo_dir = f'{self.home}/{self.settings.repo_name}'
         cmd = [
+            f'mkdir -p {self.home}',
+            f'cd {self.home}',
             'sudo sed -i "/bullseye-backports/d" /etc/apt/sources.list',
             'sudo apt-get update',
             'sudo apt-get -y upgrade',
@@ -124,17 +129,19 @@ class CloudLabBench:
             'sudo apt-get -y install clang git curl',
             'sudo apt-get install -y iperf3 python3-pip python3-venv',
 
+            # rustup defaults to $HOME/.cargo; pin installs under settings.home.
+            f'export CARGO_HOME={cargo_home} RUSTUP_HOME={rustup_home}',
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
             f'source {cargo_env}',
             'rustup default stable',
 
-            f'(git clone {self.settings.repo_url} {self.settings.repo_name} || (cd {self.settings.repo_name} && git pull --rebase))',
-            f'(cd {self.settings.repo_name} && git checkout {self.settings.branch})',
+            f'(git clone {self.settings.repo_url} {repo_dir} || (cd {repo_dir} && git pull --rebase))',
+            f'(cd {repo_dir} && git checkout {self.settings.branch})',
 
-            f'(cd {self.settings.repo_name} && source {cargo_env} && {CommandMaker.compile()})',
+            f'(cd {repo_dir} && source {cargo_env} && {CommandMaker.compile()})',
 
-            f'ln -sf {self.settings.repo_name}/target/release/node ~/node',
-            f'ln -sf {self.settings.repo_name}/target/release/benchmark_client ~/benchmark_client',
+            f'ln -sf {repo_dir}/target/release/node {self.home}/node',
+            f'ln -sf {repo_dir}/target/release/benchmark_client {self.home}/benchmark_client',
 
             # Agent venv on every remote node (shared helper).
             *CommandMaker.remote_agent_venv_setup_cmds(self.settings.repo_name),
@@ -156,7 +163,8 @@ class CloudLabBench:
         assert isinstance(delete_logs, bool)
         hosts = hosts if hosts else self.manager.hosts(flat=True)
         delete_logs = CommandMaker.clean_logs() if delete_logs else 'true'
-        cmd = [delete_logs, f'({CommandMaker.kill()} || true)']
+        # Always operate under settings.home, not the SSH login home.
+        cmd = [f'cd {self.home}', delete_logs, f'({CommandMaker.kill()} || true)']
         try:
             g = Group(*hosts, user=self.settings.username, connect_kwargs=self.connect)
             g.run(' && '.join(cmd), hide=True)
@@ -225,7 +233,12 @@ class CloudLabBench:
 
     def _background_run(self, host, command, log_file):
         name = splitext(basename(log_file))[0]
-        cmd = f'tmux new -d -s "{name}" "{command} |& tee {log_file}"'
+        # Runtime cwd and logs stay under settings.home (e.g. /local).
+        log_path = log_file if str(log_file).startswith('/') else f'{self.home}/{log_file}'
+        cmd = (
+            f'tmux new -d -s "{name}" '
+            f'"cd {self.home} && {command} |& tee {log_path}"'
+        )
         c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)
         output = c.run(cmd, hide=True)
         self._check_stderr(output)
@@ -306,14 +319,17 @@ class CloudLabBench:
             f'Updating {len(ips)} machines (branch "{self.settings.branch}")...'
         )
 
+        repo_dir = f'{self.home}/{self.settings.repo_name}'
+        branch = self.settings.branch
         cmd = [
-            f'(cd {self.settings.repo_name} && git fetch origin {self.settings.branch}:{self.settings.branch})',
-            f'(cd {self.settings.repo_name} && git reset --hard origin/{self.settings.branch})',
+            # Fetch into origin/<branch>, not the checked-out local branch.
+            f'(cd {repo_dir} && git fetch origin {branch})',
+            f'(cd {repo_dir} && git checkout -B {branch} origin/{branch})',
+            f'(cd {repo_dir} && git reset --hard origin/{branch})',
+            f'export CARGO_HOME={self.home}/.cargo RUSTUP_HOME={self.home}/.rustup',
             f'source {self.home}/.cargo/env',
-            f'(cd {self.settings.repo_name} && {CommandMaker.compile()})',
-            CommandMaker.alias_binaries(
-                f'./{self.settings.repo_name}/target/release/'
-            )
+            f'(cd {repo_dir} && {CommandMaker.compile()})',
+            f'(cd {self.home} && {CommandMaker.alias_binaries(f"{repo_dir}/target/release/")})',
         ]
 
         g = Group(*ips, user=self.settings.username, connect_kwargs=self.connect)
@@ -360,17 +376,17 @@ class CloudLabBench:
 
         node_parameters.print(PathMaker.parameters_file())
 
-        # Cleanup all nodes and upload configuration files.
+        # Cleanup all nodes and upload configuration files under settings.home.
         names = names[:len(names)-bench_parameters.faults]
         progress = progress_bar(names, prefix='Uploading config files:')
         for i, name in enumerate(progress):
             for ip in committee.ips(name):
                 c = Connection(ip, user=self.settings.username, connect_kwargs=self.connect)
-                c.run(f'{CommandMaker.cleanup()} || true', hide=True)
-                c.put(PathMaker.committee_file(), '.')
-                c.put(PathMaker.key_file(i), '.')
-                c.put(PathMaker.parameters_file(), '.')
-                # c.put(PathMaker.local_parameters_file(i), '.')
+                c.run(f'cd {self.home} && ({CommandMaker.cleanup()} || true)', hide=True)
+                c.put(PathMaker.committee_file(), f'{self.home}/')
+                c.put(PathMaker.key_file(i), f'{self.home}/')
+                c.put(PathMaker.parameters_file(), f'{self.home}/')
+                # c.put(PathMaker.local_parameters_file(i), f'{self.home}/')
 
         return committee
 
@@ -561,7 +577,7 @@ class CloudLabBench:
             cmd = CommandMaker.run_controller(
                 node_index=i,
                 repo_name=self.settings.repo_name,
-                log_dir=PathMaker.logs_path(),
+                log_dir=f'{self.home}/{PathMaker.logs_path()}',
                 parameters_file=f'{self.home}/.parameters.json',
                 python_bin=CommandMaker.agent_venv_python(),
                 resume_from=resume_from,
@@ -583,8 +599,8 @@ class CloudLabBench:
                 window_size=window_size,
                 node_index=i,
                 repo_name=self.settings.repo_name,
-                log_dir=PathMaker.logs_path(),
-                parameters_file=PathMaker.parameters_file(),
+                log_dir=f'{self.home}/{PathMaker.logs_path()}',
+                parameters_file=f'{self.home}/{PathMaker.parameters_file()}',
                 python_bin=CommandMaker.agent_venv_python(),
             )
             log_file = join(PathMaker.logs_path(), f'metrics_collector-{i}.log')
@@ -680,7 +696,7 @@ class CloudLabBench:
         cmd = CommandMaker.clean_logs()
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
-        # Download log files.
+        # Download log files from settings.home on each remote.
         workers_addresses = committee.workers_addresses(faults)
         progress = progress_bar(workers_addresses, prefix='Downloading workers logs:')
         for i, addresses in enumerate(progress):
@@ -688,11 +704,11 @@ class CloudLabBench:
                 host = Committee.ip(address)
                 c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)
                 c.get(
-                    PathMaker.client_log_file(i, id), 
+                    f'{self.home}/{PathMaker.client_log_file(i, id)}',
                     local=PathMaker.client_log_file(i, id)
                 )
                 c.get(
-                    PathMaker.worker_log_file(i, id), 
+                    f'{self.home}/{PathMaker.worker_log_file(i, id)}',
                     local=PathMaker.worker_log_file(i, id)
                 )
 
@@ -702,7 +718,7 @@ class CloudLabBench:
             host = Committee.ip(address)
             c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)
             c.get(
-                PathMaker.primary_log_file(i), 
+                f'{self.home}/{PathMaker.primary_log_file(i)}',
                 local=PathMaker.primary_log_file(i)
             )
 

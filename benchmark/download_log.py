@@ -145,12 +145,12 @@ def download_logs(
             with conn:
                 _safe_get(
                     conn,
-                    PathMaker.client_log_file(i, worker_id),
+                    f"{settings.home}/{PathMaker.client_log_file(i, worker_id)}",
                     PathMaker.client_log_file(i, worker_id),
                 )
                 _safe_get(
                     conn,
-                    PathMaker.worker_log_file(i, worker_id),
+                    f"{settings.home}/{PathMaker.worker_log_file(i, worker_id)}",
                     PathMaker.worker_log_file(i, worker_id),
                 )
 
@@ -162,7 +162,7 @@ def download_logs(
         with conn:
             _safe_get(
                 conn,
-                PathMaker.primary_log_file(i),
+                f"{settings.home}/{PathMaker.primary_log_file(i)}",
                 PathMaker.primary_log_file(i),
             )
             if extra:
@@ -172,11 +172,13 @@ def download_logs(
                     f"logs/continuous_training-{i}.log",
                     f"logs/metrics-{i}.log",
                 ):
-                    _safe_get(conn, remote, remote)
+                    _safe_get(conn, f"{settings.home}/{remote}", remote)
 
-                # 同步 metrics-{i}/ 目录（若存在）
+                # 同步 metrics-{i}/ 目录（若存在，位于 settings.home 下）
                 metrics_dir = f"metrics-{i}"
-                result = conn.run(f"test -d {metrics_dir}", hide=True, warn=True)
+                result = conn.run(
+                    f"test -d {settings.home}/{metrics_dir}", hide=True, warn=True
+                )
                 if result.exited == 0:
                     local_metrics = Path(metrics_dir)
                     local_metrics.mkdir(parents=True, exist_ok=True)

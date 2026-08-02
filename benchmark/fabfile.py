@@ -453,7 +453,9 @@ def _ssh_connect_settings():
 @task
 def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     """
-    Measure SSH latency between nodes.
+    Measure ICMP ping latency between nodes.
+
+    SSHes into the source node and runs `ping` from there to each destination.
 
     Args:
         cross_region: Whether to also measure cross-region latency (default: False)
@@ -461,17 +463,15 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
                     If None, auto-detect current node.
         full_matrix: If True, measure full node-to-node latency matrix instead of single source.
     """
+    import json
+    import re
     import time
     import numpy as np
-    import json
-    import os
     from fabric import Connection
-    from paramiko import RSAKey, SSHException
-    from invoke.exceptions import UnexpectedExit
+    from paramiko import SSHException
     from benchmark.utils import Print
 
     try:
-        # GCP: ctx.connect_kwargs.pkey = RSAKey.from_private_key_file("/home/ccclr0302/.ssh/gcp_rsa")
         username, pkey = _ssh_connect_settings()
         ctx.connect_kwargs.pkey = pkey
         connect_kwargs = ctx.connect_kwargs
@@ -521,26 +521,34 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     target_nodes = [node for node in node_records if node["name"] != source_node]
     print(f"Will measure latency to {len(target_nodes)} other nodes")
 
-    def ssh_latency(src_ip, dst_ip, repeat=1):
-        if src_ip == dst_ip:
+    def ping_latency(src_node, dst_ip, repeat=5):
+        """Measure ICMP RTT (avg ms) from src_node to dst_ip via SSH + ping."""
+        if src_node["ip"] == dst_ip:
             return 0.0
-        results = []
-        for _ in range(repeat):
-            try:
-                # Note: We connect to dst_ip but the source is determined by which machine we're running on
-                # GCP: conn = Connection(host=dst_ip, user="ccclr0302", connect_kwargs=connect_kwargs)
-                conn = Connection(host=dst_ip, user=username, connect_kwargs=connect_kwargs)
-                conn.run("echo warmup", hide=True, timeout=5)
-                start = time.time()
-                conn.run("echo hello", hide=True, timeout=5)
-                end = time.time()
-                conn.close()
-                results.append((end - start) * 1000)  # ms
-            except Exception as e:
-                print(f"[Error] SSH {src_ip} → {dst_ip}: {e}")
-                results.append(np.nan)
-        valid = [x for x in results if not np.isnan(x)]
-        return np.mean(valid) if valid else np.nan
+        try:
+            conn = Connection(
+                host=src_node["ip"],
+                user=username,
+                connect_kwargs=connect_kwargs,
+            )
+            result = conn.run(
+                f"ping -c {repeat} -W 2 {dst_ip}",
+                hide=True,
+                warn=True,
+                timeout=max(30, repeat * 3),
+            )
+            conn.close()
+            m = re.search(
+                r'=\s*([\d\.]+)/([\d\.]+)/([\d\.]+)/',
+                result.stdout or '',
+            )
+            if not m:
+                print(f"[Error] ping {src_node['ip']} → {dst_ip}: no rtt stats")
+                return np.nan
+            return float(m.group(2))  # avg RTT in ms
+        except Exception as e:
+            print(f"[Error] ping {src_node['ip']} → {dst_ip}: {e}")
+            return np.nan
 
     if full_matrix:
         # Full matrix mode: measure all node pairs (fallback for compatibility)
@@ -566,19 +574,16 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         full_latency_matrix = np.zeros((n_total, n_total))
         node_names = [node["name"] for node in all_nodes]
 
-        print("=== Measuring Full Node-to-Node Latency Matrix ===")
+        print("=== Measuring Full Node-to-Node Latency Matrix (ICMP ping) ===")
         for i, src_node in enumerate(all_nodes):
             for j, dst_node in enumerate(all_nodes):
                 if i == j:
                     continue
 
-                src_ip = src_node["ip"]
-                dst_ip = dst_node["ip"]
+                latency = ping_latency(src_node, dst_node["ip"])
+                full_latency_matrix[i][j] = latency
 
-                latency = ssh_latency(src_ip, dst_ip)
-                full_latency_matrix[i][j] = latency if latency else np.nan
-
-                if latency:
+                if not np.isnan(latency):
                     print(f"  {src_node['name']} → {dst_node['name']}: {latency:.2f} ms")
                 else:
                     print(f"  {src_node['name']} → {dst_node['name']}: Failed")
@@ -613,10 +618,10 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
                     node_i = nodes_i[0]
                     node_j = nodes_j[0]
 
-                    latency = ssh_latency(node_i["ip"], node_j["ip"])
-                    region_matrix[i][j] = latency if latency else np.nan
+                    latency = ping_latency(node_i, node_j["ip"])
+                    region_matrix[i][j] = latency
 
-                    if latency:
+                    if not np.isnan(latency):
                         print(f"[Cross] {region_i} → {region_j}: {region_matrix[i][j]:.2f} ms")
                     else:
                         print(f"[Cross] {region_i} → {region_j}: Failed")
@@ -654,7 +659,7 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         print(f"  - latency_full_matrix_{timestamp}.npy")
 
     # Default behavior: measure latency vector from source node to all others
-    print("=== Measuring Latency from Current Node ===")
+    print("=== Measuring Latency from Current Node (ICMP ping) ===")
     latency_vector = []
     measured_count = 0
 
@@ -662,10 +667,10 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         target_name = target["name"]
         target_ip = target["ip"]
         target_region = target["region"]
-        latency = ssh_latency(current_node_ip, target_ip)
-        latency_vector.append(latency if latency else np.nan)
+        latency = ping_latency(source_record, target_ip)
+        latency_vector.append(latency)
 
-        if latency:
+        if not np.isnan(latency):
             print(f"  {source_node} ({source_record['region']}) → {target_name} ({target_region}): {latency:.2f} ms")
             measured_count += 1
         else:
