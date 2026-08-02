@@ -1,0 +1,17 @@
+# Rust build artifacts (never commit)
+/target/
+
+# Editor / OS
+*.swp
+*.swo
+.DS_Store
+
+# Local benchmark runtime files
+benchmark/.committee.json
+benchmark/.node-*.json
+benchmark/.parameters.json
+benchmark/.parameters-*.json
+benchmark/logs/
+benchmark/results/
+benchmark/*.npy
+benchmark/latencies.txt
