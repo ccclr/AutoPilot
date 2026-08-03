@@ -1,7 +1,7 @@
 {
     "key": {
-        "name": "clr0302",
-        "path": "/users/clr0302/.ssh/id_rsa"
+        "name": "cloudlab",
+        "path": "/users/AlanXiao/.ssh/cloudlab"
     },
     "port": 5000,
     "repo": {
@@ -9,32 +9,32 @@
         "url": "https://github.com/ccclr/autopilot.git",
         "branch": "cloudlab"
     },
-    "username": "clr0302",
+    "username": "AlanXiao",
     "home": "/local",
     "hosts": [
         {
             "hostname": "10.10.1.1",
-            "username": "clr0302",
+            "username": "AlanXiao",
             "port": 22,
-            "region": "utah"
+            "region": "apt"
         },
         {
             "hostname": "10.10.1.2",
-            "username": "clr0302",
+            "username": "AlanXiao",
             "port": 22,
-            "region": "utah"
+            "region": "apt"
         },
         {
             "hostname": "10.10.1.3",
-            "username": "clr0302",
+            "username": "AlanXiao",
             "port": 22,
-            "region": "utah"
+            "region": "apt"
         },
         {
             "hostname": "10.10.1.4",
-            "username": "clr0302",
+            "username": "AlanXiao",
             "port": 22,
-            "region": "utah"
+            "region": "apt"
         }
     ]
 }
