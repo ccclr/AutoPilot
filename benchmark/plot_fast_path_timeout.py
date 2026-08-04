@@ -13,7 +13,6 @@ import csv
 import re
 import statistics
 from collections import defaultdict
-from itertools import combinations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -50,35 +49,14 @@ def parse_archive(path: Path) -> dict | None:
     }
 
 
-def select_closest_trials(trials: list[dict], keep: int = 3, key: str = "e2e_latency_ms") -> tuple[list[dict], dict | None]:
-    """Keep the most similar `keep` trials by minimizing E2E latency range; drop the rest as outliers."""
-    if len(trials) <= keep:
-        return trials, None
-
-    best_keep = None
-    best_score = None
-    best_excluded = None
-    for idxs in combinations(range(len(trials)), keep):
-        subset = [trials[i] for i in idxs]
-        vals = [t[key] for t in subset]
-        score = (max(vals) - min(vals), statistics.pstdev(vals))
-        if best_score is None or score < best_score:
-            best_score = score
-            best_keep = subset
-            excluded_idx = next(i for i in range(len(trials)) if i not in idxs)
-            best_excluded = trials[excluded_idx]
-    return best_keep or trials, best_excluded
-
-
-def aggregate(rows: list[dict], keep_closest: int = 3) -> list[dict]:
+def aggregate(rows: list[dict]) -> list[dict]:
     by_timeout: dict[int, list[dict]] = defaultdict(list)
     for row in rows:
         by_timeout[row["timeout_ms"]].append(row)
 
     summary = []
     for timeout in sorted(by_timeout):
-        all_trials = by_timeout[timeout]
-        trials, excluded = select_closest_trials(all_trials, keep=keep_closest)
+        trials = by_timeout[timeout]
 
         def mean_err(vals: list[float]) -> tuple[float, float]:
             mean = statistics.mean(vals)
@@ -109,11 +87,8 @@ def aggregate(rows: list[dict], keep_closest: int = 3) -> list[dict]:
         summary.append(
             {
                 "timeout_ms": timeout,
-                "n_trials_raw": len(all_trials),
                 "n_trials": len(trials),
-                "kept_files": ",".join(t["file"] for t in trials),
-                "excluded_file": excluded["file"] if excluded else "",
-                "excluded_e2e_latency_ms": excluded["e2e_latency_ms"] if excluded else "",
+                "files": ",".join(t["file"] for t in trials),
                 "e2e_latency_mean_ms": e2e_mean,
                 "e2e_latency_err_ms": e2e_err,
                 "consensus_latency_mean_ms": cons_mean,
@@ -129,11 +104,8 @@ def aggregate(rows: list[dict], keep_closest: int = 3) -> list[dict]:
 def write_csv(summary: list[dict], path: Path) -> None:
     fields = [
         "timeout_ms",
-        "n_trials_raw",
         "n_trials",
-        "kept_files",
-        "excluded_file",
-        "excluded_e2e_latency_ms",
+        "files",
         "e2e_latency_mean_ms",
         "e2e_latency_err_ms",
         "consensus_latency_mean_ms",
@@ -185,7 +157,7 @@ def plot_curve(summary: list[dict], out_path: Path) -> None:
     )
     ax.set_xlabel("Fast path timeout (ms)")
     ax.set_ylabel("Latency (ms)")
-    ax.set_title("Fast path timeout vs latency (3 closest of 4 trials, 120s runs)")
+    ax.set_title("Fast path timeout vs latency (mean of all trials, 120s runs)")
     ax.set_xticks(xs)
     ax.grid(True, alpha=0.3)
 
@@ -219,7 +191,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Plot FPT sweep latency curve")
     parser.add_argument(
         "--archive-dir",
-        default=str(_script_dir() / "results" / "fpt_sweep"),
+        default=str(_script_dir() / "results" / "fpt_sweep_120s"),
         help="Directory with fpt-*ms-trial*.txt archives",
     )
     parser.add_argument(
@@ -229,7 +201,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--csv",
-        default=str(_script_dir() / "results" / "fpt_sweep" / "summary.csv"),
+        default=str(_script_dir() / "results" / "fpt_sweep_120s" / "summary.csv"),
         help="Output summary CSV path",
     )
     args = parser.parse_args()
@@ -262,14 +234,13 @@ def main() -> int:
 
     print(f"Wrote {csv_path}")
     print(f"Wrote {out_path}")
-    print("timeout_ms  e2e_mean±err  consensus_mean±err  n_kept/n_raw  excluded")
+    print("timeout_ms  e2e_mean±err  consensus_mean±err  n")
     for r in summary:
         print(
             f"{r['timeout_ms']:>5}      "
             f"{r['e2e_latency_mean_ms']:.0f}±{r['e2e_latency_err_ms']:.0f}        "
             f"{r['consensus_latency_mean_ms']:.0f}±{r['consensus_latency_err_ms']:.0f}             "
-            f"{r['n_trials']}/{r['n_trials_raw']}         "
-            f"{r['excluded_file'] or '-'}"
+            f"{r['n_trials']}"
         )
 
     best = min(summary, key=lambda r: r["e2e_latency_mean_ms"])
