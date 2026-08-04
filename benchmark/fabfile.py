@@ -174,7 +174,7 @@ def remote(ctx, debug=True):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 3000,
+        'duration': 60,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
@@ -193,7 +193,7 @@ def remote(ctx, debug=True):
         #   hotspot_regions      = [['utah']]
         #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
         #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
-        'enable_hotspot': True,
+        'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[3]],

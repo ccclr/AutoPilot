@@ -11,3 +11,5 @@ sudo apt-get install python3-pip
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pip install -r "${SCRIPT_DIR}/requirements.txt"
+
+export PATH="$HOME/.local/bin:$PATH"
