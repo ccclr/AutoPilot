@@ -165,7 +165,7 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=True):
+def remote(ctx, debug=False):
     ''' Run benchmarks on CloudLab '''
     bench_params = {
         'faults': 0,
@@ -174,7 +174,7 @@ def remote(ctx, debug=True):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 60,
+        'duration': 120,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
@@ -194,10 +194,10 @@ def remote(ctx, debug=True):
         #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
         #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
         'enable_hotspot': False,
-        'hotspot_windows': [[0, 3000]],
-        'hotspot_regions': [['utah']],
-        'hotspot_nodes': [[3]],
-        'hotspot_region_rates': [[[0.5, 0.3, 0.3]]],
+        'hotspot_windows': [[ ]],
+        'hotspot_regions': [[ ]],
+        'hotspot_nodes': [[ ]],
+        'hotspot_region_rates': [[ ]],
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -206,7 +206,7 @@ def remote(ctx, debug=True):
         'gc_depth': 50,  # rounds
         'sync_retry_delay': 5000,  # ms
         'sync_retry_nodes': 3,  # number of nodes
-        'batch_size': 500_000,  # bytes
+        'batch_size': 100_000,  # bytes
         'max_batch_delay': 5000,  # ms
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
@@ -225,10 +225,10 @@ def remote(ctx, debug=True):
 
         'asynchrony_start': [0],  # s
         'asynchrony_duration': [3000],  # s
-        'affected_nodes': [2],
-        'asynchrony_nodes': [2],
-        'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[50, 100]]],
+        'affected_nodes': [ ],
+        'asynchrony_nodes': [ ],
+        'asynchrony_regions': [[ ]],
+        'egress_penalty': [[ ]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
