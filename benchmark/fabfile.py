@@ -165,7 +165,7 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=True):
+def remote(ctx, debug=False):
     ''' Run benchmarks on CloudLab '''
     bench_params = {
         'faults': 0,
@@ -206,7 +206,7 @@ def remote(ctx, debug=True):
         'gc_depth': 50,  # rounds
         'sync_retry_delay': 5000,  # ms
         'sync_retry_nodes': 3,  # number of nodes
-        'batch_size': 500_000,  # bytes
+        'batch_size': 100_000,  # bytes
         'max_batch_delay': 5000,  # ms
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
@@ -223,12 +223,12 @@ def remote(ctx, debug=True):
         'simulate_asynchrony': False,
         'asynchrony_type': [6],
 
-        'asynchrony_start': [0],  # s;
-        'asynchrony_duration': [300],  # s;
-        'affected_nodes': [4],
-        'asynchrony_nodes': [4],
-        'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[40, 50, 60, 70]]],
+        'asynchrony_start': [0],  # s
+        'asynchrony_duration': [3000],  # s
+        'affected_nodes': [ ],
+        'asynchrony_nodes': [ ],
+        'asynchrony_regions': [[ ]],
+        'egress_penalty': [[ ]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,

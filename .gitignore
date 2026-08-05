@@ -12,6 +12,5 @@ benchmark/.node-*.json
 benchmark/.parameters.json
 benchmark/.parameters-*.json
 benchmark/logs/
-benchmark/results/
 benchmark/*.npy
 benchmark/latencies.txt
