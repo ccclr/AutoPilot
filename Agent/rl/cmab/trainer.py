@@ -15,6 +15,7 @@ import numpy as np
 
 from .arm_catalog import ArmCatalog
 from .context_builder import ContextBuilder
+from .reward_change_detector import RewardChangeDetector
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class CMABTrainer:
         node_index: Optional[int] = None,
         warmup_iterations: int = 5,
         checkpoint_prefix: str = "cmab_checkpoint",
+        reward_change_detector: Optional[RewardChangeDetector] = None,
     ):
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -51,6 +53,7 @@ class CMABTrainer:
         self.node_index = node_index
         self.warmup_iterations = max(0, warmup_iterations)
         self.checkpoint_prefix = checkpoint_prefix or "cmab_checkpoint"
+        self.reward_change_detector = reward_change_detector
 
     def run(self, num_iterations: Optional[int], checkpoint_freq: int):
         logger.info("Initializing CMAB training loop...")
@@ -99,6 +102,8 @@ class CMABTrainer:
                 continue
 
             reward = self._extract_reward_from_global_state(next_metrics)
+            reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
+            self._observe_reward_change(reward_epoch, reward)
             if reward > 15 or reward == 0:
                 logger.warning(
                     "Dropping sample due to suspicious high reward (>10): reward=%.6f metrics=%s",
@@ -108,7 +113,6 @@ class CMABTrainer:
                 # Move forward to avoid reprocessing the same metrics file.
                 self.last_metrics_file = next_metrics
                 continue
-            reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
             if current_epoch is not None and reward_epoch is not None and reward_epoch > current_epoch + 1:
                 logger.warning(
                     "Detected non-contiguous reward epoch: current=%s, reward=%s, backfilling credited arm for skipped epochs",
@@ -200,6 +204,49 @@ class CMABTrainer:
             except OSError:
                 pass
             self._param_socket = None
+
+    def _observe_reward_change(self, epoch: Optional[int], reward: float) -> None:
+        detector = self.reward_change_detector
+        if detector is None:
+            return
+
+        count_before = detector.observation_count
+        result = detector.observe(reward)
+        if result is None:
+            if detector.observation_count > count_before:
+                logger.info(
+                    "REWARD_CHANGE_WARMUP epoch=%s reward=%.6f samples=%d required=%d",
+                    epoch,
+                    reward,
+                    detector.observation_count,
+                    detector.required_observations,
+                )
+            else:
+                logger.warning(
+                    "REWARD_CHANGE_SKIPPED epoch=%s invalid_reward=%s",
+                    epoch,
+                    reward,
+                )
+            return
+
+        logger.info(
+            "REWARD_CHANGE_SCORE epoch=%s reward=%.6f old_mean=%.6f new_mean=%.6f "
+            "score=%.6f threshold=%.6f detected=%s",
+            epoch,
+            reward,
+            result.old_mean,
+            result.new_mean,
+            result.score,
+            result.threshold,
+            result.detected,
+        )
+        if result.detected:
+            logger.warning(
+                "ENVIRONMENT_CHANGE_DETECTED epoch=%s score=%.6f threshold=%.6f",
+                epoch,
+                result.score,
+                result.threshold,
+            )
 
     def _get_latest_metrics_file(self) -> Optional[Path]:
         files = list(self.metrics_dir.glob("global_state_epoch_*.json"))

@@ -8,7 +8,13 @@ import logging
 from pathlib import Path
 
 from actions.action_encode import ActionCodec
-from cmab import ArmCatalog, CMABPolicy, CMABTrainer, ContextBuilder
+from cmab import (
+    ArmCatalog,
+    CMABPolicy,
+    CMABTrainer,
+    ContextBuilder,
+    RewardChangeDetector,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +39,12 @@ def main():
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
+    parser.add_argument(
+        "--change-threshold",
+        type=float,
+        default=0.20,
+        help="Detect an environment change when the relative reward-window change exceeds this value.",
+    )
     parser.add_argument(
         "--warmup-iterations",
         type=int,
@@ -66,6 +78,13 @@ def main():
         logger.info("Loaded CMAB policy from %s", args.resume_from)
 
     context_builder = ContextBuilder(mode=args.context_mode)
+    reward_change_detector = RewardChangeDetector(threshold=args.change_threshold)
+    logger.info(
+        "Reward change detector enabled: window=%d lag=%d threshold=%.3f",
+        reward_change_detector.window_size,
+        reward_change_detector.lag,
+        reward_change_detector.threshold,
+    )
     trainer = CMABTrainer(
         metrics_dir=args.metrics_dir,
         parameters_file=args.parameters_file,
@@ -76,6 +95,7 @@ def main():
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
         warmup_iterations=warmup_iterations,
+        reward_change_detector=reward_change_detector,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)
@@ -83,4 +103,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
