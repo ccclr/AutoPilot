@@ -174,14 +174,14 @@ def remote(ctx, debug=True):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 3000,
+        'duration': 300,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
         # RL algorithm: "cmab" or "gp_bo"
-        'rl_algo': 'gp_bo',
-        'rl_warmup_iterations': 5,
+        'rl_algo': 'cmab',
+        'rl_warmup_iterations': 0,
 
         # Unused
         'simulate_partition': False,
@@ -193,7 +193,7 @@ def remote(ctx, debug=True):
         #   hotspot_regions      = [['utah']]
         #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
         #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
-        'enable_hotspot': True,
+        'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[3]],
@@ -223,12 +223,12 @@ def remote(ctx, debug=True):
         'simulate_asynchrony': False,
         'asynchrony_type': [6],
 
-        'asynchrony_start': [0],  # s
-        'asynchrony_duration': [3000],  # s
-        'affected_nodes': [2],
-        'asynchrony_nodes': [2],
+        'asynchrony_start': [0],  # s;
+        'asynchrony_duration': [300],  # s;
+        'affected_nodes': [4],
+        'asynchrony_nodes': [4],
         'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[50, 100]]],
+        'egress_penalty': [[[40, 50, 60, 70]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
