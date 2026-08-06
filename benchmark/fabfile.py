@@ -174,7 +174,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 900,
+        'duration': 180,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
