@@ -228,7 +228,7 @@ def remote(ctx, debug=False):
         'affected_nodes': [2],
         'asynchrony_nodes': [2],
         'asynchrony_regions': [['utah']],
-        'egress_penalty': [[200, 200]],
+        'egress_penalty': [[[200, 200]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
