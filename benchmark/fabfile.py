@@ -174,7 +174,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 180,
+        'duration': 1200,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
@@ -221,14 +221,14 @@ def remote(ctx, debug=False):
         'cut_condition_type': 3,
 
         'simulate_asynchrony': True,
-        'asynchrony_type': [4],
+        'asynchrony_type': [4, 4],
 
-        'asynchrony_start': [300],  # s
-        'asynchrony_duration': [300],  # s
-        'affected_nodes': [2],
-        'asynchrony_nodes': [2],
-        'asynchrony_regions': [['utah']],
-        'egress_penalty': [[[200, 200]]],
+        'asynchrony_start': [300, 900],  # s
+        'asynchrony_duration': [300, 300],  # s
+        'affected_nodes': [2, 2],
+        'asynchrony_nodes': [2, 2],
+        'asynchrony_regions': [['utah'], ['utah']],
+        'egress_penalty': [[[200, 200]], [[200, 200]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,
