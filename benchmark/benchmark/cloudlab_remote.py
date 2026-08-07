@@ -563,30 +563,35 @@ class CloudLabBench:
         Print.info('Waiting for all workers to be ready...')
         self._wait_for_tcp_listeners(worker_listener_addresses, timeout_sec=90, label='workers')
 
-        # Start controller for RL training.
-        Print.info('Starting RL controllers...')
-        resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
-        rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
-        warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
-        Print.info(f'RL algo: {rl_algo}')
-        Print.info(f'RL warmup iterations: {warmup_iterations}')
-        if resume_from:
-            Print.info(f'RL resume-from: {resume_from}')
-        for i, address in enumerate(primary_addresses):
-            host = Committee.ip(address)
-            cmd = CommandMaker.run_controller(
-                node_index=i,
-                repo_name=self.settings.repo_name,
-                log_dir=f'{self.home}/{PathMaker.logs_path()}',
-                parameters_file=f'{self.home}/.parameters.json',
-                python_bin=CommandMaker.agent_venv_python(),
-                resume_from=resume_from,
-                rl_algo=rl_algo,
-                warmup_iterations=warmup_iterations,
-            )
-            log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
-            self._background_run(host, cmd, log_file)
-        sleep(2)
+        # Start controller for RL training only when enabled for this experiment.
+        enable_rl = getattr(bench_parameters, 'enable_rl', True)
+        Print.info(f'RL controllers enabled: {enable_rl}')
+        if enable_rl:
+            Print.info('Starting RL controllers...')
+            resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
+            rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
+            warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
+            Print.info(f'RL algo: {rl_algo}')
+            Print.info(f'RL warmup iterations: {warmup_iterations}')
+            if resume_from:
+                Print.info(f'RL resume-from: {resume_from}')
+            for i, address in enumerate(primary_addresses):
+                host = Committee.ip(address)
+                cmd = CommandMaker.run_controller(
+                    node_index=i,
+                    repo_name=self.settings.repo_name,
+                    log_dir=f'{self.home}/{PathMaker.logs_path()}',
+                    parameters_file=f'{self.home}/.parameters.json',
+                    python_bin=CommandMaker.agent_venv_python(),
+                    resume_from=resume_from,
+                    rl_algo=rl_algo,
+                    warmup_iterations=warmup_iterations,
+                )
+                log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
+                self._background_run(host, cmd, log_file)
+            sleep(2)
+        else:
+            Print.info('RL controllers disabled; running with fixed parameters.')
 
         # Now that primaries are running and sockets are created, start metrics collectors.
         Print.info('Starting metrics collectors...')

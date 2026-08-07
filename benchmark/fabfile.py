@@ -39,6 +39,8 @@ def local(ctx, debug=False):
         'tx_size': 512,
         'duration': 60,
 
+        # Enable/disable RL controllers for this experiment.
+        'enable_rl': True,
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
         # RL algorithm: "cmab" or "gp_bo"
@@ -177,8 +179,11 @@ def remote(ctx, debug=False):
         'duration': 1200,
         'runs': 1,
 
+        # Experiment-level RL switch. When False, parameters stay fixed while
+        # metrics collection and environment-change detection still run.
+        'enable_rl': True,
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': None,
+        'cmab_resume_from': '/local/autopilot/cmab_checkpoint.pkl',
         # RL algorithm: "cmab" or "gp_bo"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 0,

@@ -252,6 +252,13 @@ class BenchParameters:
 
             self.runs = int(json['runs']) if 'runs' in json else 1
 
+            # Experiment-level RL switch. Metrics collection and change
+            # detection are independent and continue running when disabled.
+            enable_rl = json.get('enable_rl', True)
+            if not isinstance(enable_rl, bool):
+                raise ConfigError('enable_rl must be true or false')
+            self.enable_rl = enable_rl
+
             # Optional CMAB checkpoint path passed to RL controller (--resume-from).
             # None / empty / false => start training from scratch.
             resume_from = json.get('cmab_resume_from', None)
