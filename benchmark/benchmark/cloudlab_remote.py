@@ -607,6 +607,19 @@ class CloudLabBench:
             self._background_run(host, cmd, log_file)
         sleep(2)
 
+        # Environment change detection runs independently of RL training.
+        Print.info('Starting reward change monitors...')
+        for i, address in enumerate(primary_addresses):
+            host = Committee.ip(address)
+            cmd = CommandMaker.run_reward_change_monitor(
+                node_index=i,
+                repo_name=self.settings.repo_name,
+                metrics_dir=f'{self.home}/metrics-{i}',
+                python_bin=CommandMaker.agent_venv_python(),
+            )
+            log_file = join(PathMaker.logs_path(), f'reward_change_monitor-{i}.log')
+            self._background_run(host, cmd, log_file)
+
         # Fix socket permissions to allow metrics_collector to connect.
         Print.info('Fixing socket permissions for metrics collection...')
         for i, address in enumerate(primary_addresses):

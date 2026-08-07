@@ -169,6 +169,7 @@ def download_logs(
                 for remote in (
                     f"logs/controller-{i}.log",
                     f"logs/metrics_collector-{i}.log",
+                    f"logs/reward_change_monitor-{i}.log",
                     f"logs/continuous_training-{i}.log",
                     f"logs/metrics-{i}.log",
                 ):

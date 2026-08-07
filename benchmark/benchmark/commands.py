@@ -236,6 +236,25 @@ class CommandMaker:
         return cmd
 
     @staticmethod
+    def run_reward_change_monitor(
+        node_index=None,
+        repo_name=None,
+        metrics_dir=None,
+        python_bin=None,
+    ):
+        """Generate a command for reward change detection independent of training."""
+        monitor_path = (
+            f'{CommandMaker.HOME}/{repo_name}/Agent/rl/cmab/'
+            'reward_change_monitor.py'
+        )
+        python = CommandMaker.agent_python(python_bin)
+        metrics_dir = metrics_dir or f'{CommandMaker.HOME}/metrics-{node_index}'
+        cmd = f'{python} {monitor_path}'
+        cmd += f' --metrics-dir {metrics_dir}'
+        cmd += f' --node-index {node_index}'
+        return cmd
+
+    @staticmethod
     def run_controller(
         node_index=None,
         repo_name=None,
