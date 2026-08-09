@@ -1,6 +1,7 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
 from json import dump, load
 from collections import OrderedDict
+import math
 
 
 class ConfigError(Exception):
@@ -321,6 +322,65 @@ class BenchParameters:
             if warmup < 0:
                 raise ConfigError('rl_warmup_iterations must be an integer >= 0')
             self.rl_warmup_iterations = warmup
+
+            # Maximum number of iterations processed by this RL trainer run.
+            # None means that training continues until the experiment shuts it down.
+            max_training_iterations = json.get('rl_max_training_iterations', 200)
+            if max_training_iterations in (None, ''):
+                self.rl_max_training_iterations = None
+            else:
+                if isinstance(max_training_iterations, bool):
+                    raise ConfigError(
+                        'rl_max_training_iterations must be a positive integer or null'
+                    )
+                try:
+                    max_training_iterations = int(max_training_iterations)
+                except (TypeError, ValueError) as e:
+                    raise ConfigError(
+                        'rl_max_training_iterations must be a positive integer or null'
+                    ) from e
+                if max_training_iterations <= 0:
+                    raise ConfigError(
+                        'rl_max_training_iterations must be a positive integer or null'
+                    )
+                self.rl_max_training_iterations = max_training_iterations
+
+            def positive_int(name, default):
+                value = json.get(name, default)
+                if isinstance(value, bool):
+                    raise ConfigError(f'{name} must be a positive integer')
+                try:
+                    value = int(value)
+                except (TypeError, ValueError) as e:
+                    raise ConfigError(f'{name} must be a positive integer') from e
+                if value <= 0:
+                    raise ConfigError(f'{name} must be a positive integer')
+                return value
+
+            self.reward_change_window_size = positive_int(
+                'reward_change_window_size', 8
+            )
+            self.reward_change_lag = positive_int('reward_change_lag', 3)
+            self.reward_change_confirmations = positive_int(
+                'reward_change_confirmations', 3
+            )
+
+            threshold = json.get('reward_change_threshold', 0.30)
+            if isinstance(threshold, bool):
+                raise ConfigError(
+                    'reward_change_threshold must be a finite non-negative number'
+                )
+            try:
+                threshold = float(threshold)
+            except (TypeError, ValueError) as e:
+                raise ConfigError(
+                    'reward_change_threshold must be a finite non-negative number'
+                ) from e
+            if threshold < 0 or not math.isfinite(threshold):
+                raise ConfigError(
+                    'reward_change_threshold must be a finite non-negative number'
+                )
+            self.reward_change_threshold = threshold
 
             self.simulate_partition = bool(json['simulate_partition'])
 

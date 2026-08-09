@@ -104,6 +104,7 @@ class AutopilotController:
         resume_from: Optional[str] = None,
         rl_algo: str = "cmab",
         warmup_iterations: int = 5,
+        max_training_iterations: Optional[int] = None,
     ):
         """
         Initialize controller
@@ -118,6 +119,8 @@ class AutopilotController:
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO: collect N cold-start samples before first GP fit.
+            max_training_iterations: maximum iterations in this trainer run, or None
+                to continue until the controller is stopped.
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -126,6 +129,9 @@ class AutopilotController:
         self.resume_from = resume_from
         self.rl_algo = (rl_algo or "cmab").lower()
         self.warmup_iterations = max(0, int(warmup_iterations))
+        if max_training_iterations is not None and max_training_iterations <= 0:
+            raise ValueError("max_training_iterations must be positive or None")
+        self.max_training_iterations = max_training_iterations
         if self.rl_algo not in ("cmab", "gp_bo"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
@@ -201,6 +207,10 @@ class AutopilotController:
             ]
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
+            if self.max_training_iterations is not None:
+                cmd.extend(
+                    ["--num-iterations", str(self.max_training_iterations)]
+                )
 
             logger.info(f"Starting continuous training with command: {' '.join(cmd)}")
 
@@ -324,6 +334,12 @@ def main():
             'GP-BO collects N cold-start samples before fit'
         ),
     )
+    parser.add_argument(
+        '--max-training-iterations',
+        type=int,
+        default=None,
+        help='Maximum iterations in this trainer run; omit to train until stopped',
+    )
 
     args = parser.parse_args()
 
@@ -335,6 +351,12 @@ def main():
     print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
+    max_iterations = (
+        args.max_training_iterations
+        if args.max_training_iterations is not None
+        else 'continuous'
+    )
+    print(f"🔢 Max training iterations: {max_iterations}")
 
     # Logger will be initialized by AutopilotController
 
@@ -348,6 +370,7 @@ def main():
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
             warmup_iterations=args.warmup_iterations,
+            max_training_iterations=args.max_training_iterations,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

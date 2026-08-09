@@ -46,6 +46,14 @@ def local(ctx, debug=False):
         # RL algorithm: "cmab" or "gp_bo"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
+        # Maximum training iterations in this run. None = train until experiment ends.
+        'rl_max_training_iterations': 200,
+
+        # Environment-change detector (relative change between reward windows).
+        'reward_change_window_size': 8,
+        'reward_change_lag': 3,
+        'reward_change_threshold': 0.30,
+        'reward_change_confirmations': 3,
 
         # Unused
         'simulate_partition': False,
@@ -191,6 +199,14 @@ def remote(ctx, debug=False):
         # RL algorithm: "cmab" or "gp_bo"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 0,
+        # Maximum training iterations in this run. None = train until experiment ends.
+        'rl_max_training_iterations': 200,
+
+        # Environment-change detector (relative change between reward windows).
+        'reward_change_window_size': 8,
+        'reward_change_lag': 3,
+        'reward_change_threshold': 0.30,
+        'reward_change_confirmations': 3,
 
         # Unused
         'simulate_partition': False,

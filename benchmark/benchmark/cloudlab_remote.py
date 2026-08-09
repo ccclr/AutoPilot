@@ -690,8 +690,15 @@ class CloudLabBench:
                 resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
             rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
             warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
+            max_training_iterations = getattr(
+                bench_parameters, 'rl_max_training_iterations', 200
+            )
             Print.info(f'RL algo: {rl_algo}')
             Print.info(f'RL warmup iterations: {warmup_iterations}')
+            Print.info(
+                'RL max training iterations: '
+                f'{max_training_iterations if max_training_iterations is not None else "continuous"}'
+            )
             Print.info(f'RL checkpoint enabled: {enable_checkpoint}')
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
@@ -706,6 +713,7 @@ class CloudLabBench:
                     resume_from=resume_from,
                     rl_algo=rl_algo,
                     warmup_iterations=warmup_iterations,
+                    max_training_iterations=max_training_iterations,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(host, cmd, log_file)
@@ -734,6 +742,22 @@ class CloudLabBench:
 
         # Environment change detection runs independently of RL training.
         Print.info('Starting reward change monitors...')
+        reward_change_window_size = getattr(
+            bench_parameters, 'reward_change_window_size', 8
+        )
+        reward_change_lag = getattr(bench_parameters, 'reward_change_lag', 3)
+        reward_change_threshold = getattr(
+            bench_parameters, 'reward_change_threshold', 0.30
+        )
+        reward_change_confirmations = getattr(
+            bench_parameters, 'reward_change_confirmations', 3
+        )
+        Print.info(
+            'Reward change detector: '
+            f'window={reward_change_window_size}, lag={reward_change_lag}, '
+            f'threshold={reward_change_threshold}, '
+            f'confirmations={reward_change_confirmations}'
+        )
         for i, address in enumerate(primary_addresses):
             host = Committee.ip(address)
             cmd = CommandMaker.run_reward_change_monitor(
@@ -741,6 +765,10 @@ class CloudLabBench:
                 repo_name=self.settings.repo_name,
                 metrics_dir=f'{self.home}/metrics-{i}',
                 python_bin=CommandMaker.agent_venv_python(),
+                window_size=reward_change_window_size,
+                lag=reward_change_lag,
+                threshold=reward_change_threshold,
+                confirmations=reward_change_confirmations,
             )
             log_file = join(PathMaker.logs_path(), f'reward_change_monitor-{i}.log')
             self._background_run(host, cmd, log_file)

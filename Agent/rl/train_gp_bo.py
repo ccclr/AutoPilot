@@ -30,7 +30,12 @@ def main():
     parser.add_argument("--metrics-dir", type=str, default=str(home / "autopilot" / "metrics"))
     parser.add_argument("--parameters-file", type=str, default=str(home / ".parameters.json"))
     parser.add_argument("--checkpoint-dir", type=str, default="/tmp/gp_bo_checkpoints")
-    parser.add_argument("--num-iterations", type=int, default=200)
+    parser.add_argument(
+        "--num-iterations",
+        type=int,
+        default=None,
+        help="Maximum iterations in this run; omit to train until stopped",
+    )
     parser.add_argument("--checkpoint-freq", type=int, default=10)
     parser.add_argument("--policy", type=str, default="gp_bo", choices=["gp_bo", "default"])
     parser.add_argument("--context-mode", type=str, default="dynamic", choices=["dynamic", "full"])
@@ -59,12 +64,14 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous GP-BO Training (mixed timeout)")
     logger.info(
-        "metrics_dir=%s parameters_file=%s kappa=%.3f timeout_grid=%d warmup=%d",
+        "metrics_dir=%s parameters_file=%s kappa=%.3f timeout_grid=%d "
+        "warmup=%d max_iterations=%s",
         args.metrics_dir,
         args.parameters_file,
         args.kappa,
         args.timeout_grid_size,
         warmup_iterations,
+        args.num_iterations,
     )
 
     codec_policy = "default" if args.policy == "default" else "rf_ts"

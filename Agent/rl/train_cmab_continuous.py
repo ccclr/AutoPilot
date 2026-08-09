@@ -28,7 +28,12 @@ def main():
     parser.add_argument("--metrics-dir", type=str, default=str(home / "autopilot" / "metrics"))
     parser.add_argument("--parameters-file", type=str, default=str(home / ".parameters.json"))
     parser.add_argument("--checkpoint-dir", type=str, default="/tmp/cmab_continuous_checkpoints")
-    parser.add_argument("--num-iterations", type=int, default=200)
+    parser.add_argument(
+        "--num-iterations",
+        type=int,
+        default=None,
+        help="Maximum iterations in this run; omit to train until stopped",
+    )
     parser.add_argument("--checkpoint-freq", type=int, default=10)
     parser.add_argument("--policy", type=str, default="rf_ts", choices=["rf_ts", "random", "default"])
     parser.add_argument("--context-mode", type=str, default="dynamic", choices=["dynamic", "full"])
@@ -49,10 +54,11 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d",
+        "metrics_dir=%s parameters_file=%s warmup=%d max_iterations=%s",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
+        args.num_iterations,
     )
 
     codec = ActionCodec(policy=args.policy)

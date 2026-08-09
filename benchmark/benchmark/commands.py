@@ -241,6 +241,10 @@ class CommandMaker:
         repo_name=None,
         metrics_dir=None,
         python_bin=None,
+        window_size=None,
+        lag=None,
+        threshold=None,
+        confirmations=None,
     ):
         """Generate a command for reward change detection independent of training."""
         monitor_path = (
@@ -252,6 +256,14 @@ class CommandMaker:
         cmd = f'{python} {monitor_path}'
         cmd += f' --metrics-dir {metrics_dir}'
         cmd += f' --node-index {node_index}'
+        if window_size is not None:
+            cmd += f' --window-size {int(window_size)}'
+        if lag is not None:
+            cmd += f' --lag {int(lag)}'
+        if threshold is not None:
+            cmd += f' --threshold {float(threshold)}'
+        if confirmations is not None:
+            cmd += f' --confirmations {int(confirmations)}'
         return cmd
 
     @staticmethod
@@ -264,6 +276,7 @@ class CommandMaker:
         resume_from=None,
         rl_algo=None,
         warmup_iterations=None,
+        max_training_iterations=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -280,4 +293,6 @@ class CommandMaker:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:
             cmd += f' --warmup-iterations {int(warmup_iterations)}'
+        if max_training_iterations is not None:
+            cmd += f' --max-training-iterations {int(max_training_iterations)}'
         return cmd
