@@ -182,8 +182,12 @@ def remote(ctx, debug=False):
         # Experiment-level RL switch. When False, parameters stay fixed while
         # metrics collection and environment-change detection still run.
         'enable_rl': True,
-        # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': '/local/autopilot/cmab_checkpoint.pkl',
+        # Set these two values on node0 before each run. Fabric snapshots this
+        # file before git reset, then copies it to every controller node.
+        'enable_checkpoint': True,
+        'checkpoint_path': '/local/autopilot/cmab_checkpoint.pkl',
+        # Legacy mode only: a path that already exists on every remote node.
+        'cmab_resume_from': None,
         # RL algorithm: "cmab" or "gp_bo"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 0,

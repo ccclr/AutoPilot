@@ -1,5 +1,7 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
+import hashlib
 import os
+import shlex
 import shutil
 import socket
 from collections import OrderedDict
@@ -242,6 +244,109 @@ class CloudLabBench:
         c = Connection(host, user=self.settings.username, connect_kwargs=self.connect)
         output = c.run(cmd, hide=True)
         self._check_stderr(output)
+
+    @staticmethod
+    def _sha256_file(path):
+        digest = hashlib.sha256()
+        with open(path, 'rb') as checkpoint_file:
+            for chunk in iter(lambda: checkpoint_file.read(1024 * 1024), b''):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _stage_checkpoint_on_node0(self, checkpoint_path):
+        """Snapshot the source before remote git updates can modify node0."""
+        source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
+        if not os.path.isfile(source_path):
+            raise BenchError(
+                'Cannot stage RL checkpoint',
+                FileNotFoundError(
+                    f'checkpoint_path does not exist on node0: {source_path}'
+                ),
+            )
+
+        source_sha256 = self._sha256_file(source_path)
+        stage_dir = f'{self.home}/cmab_checkpoint_sources'
+        stage_path = f'{stage_dir}/current.pkl'
+        temporary_path = (
+            f'{stage_path}.stage-{os.getpid()}-{source_sha256[:12]}'
+        )
+        try:
+            os.makedirs(stage_dir, exist_ok=True)
+            shutil.copyfile(source_path, temporary_path)
+            staged_sha256 = self._sha256_file(temporary_path)
+            if staged_sha256 != source_sha256:
+                raise ValueError(
+                    'node0 checkpoint staging checksum mismatch: '
+                    f'expected {source_sha256}, got {staged_sha256}'
+                )
+            os.replace(temporary_path, stage_path)
+        except Exception as e:
+            raise BenchError('Failed to stage RL checkpoint on node0', e) from e
+
+        Print.info(
+            f'Staged node0 checkpoint: {source_path} -> {stage_path} '
+            f'(sha256={source_sha256[:12]}...)'
+        )
+        return stage_path
+
+    def _distribute_checkpoint(self, checkpoint_path, primary_addresses):
+        """Copy one node0-local checkpoint to every controller node."""
+        source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
+        if not os.path.isfile(source_path):
+            raise BenchError(
+                'Cannot distribute RL checkpoint',
+                FileNotFoundError(
+                    f'checkpoint_path does not exist on node0: {source_path}'
+                ),
+            )
+
+        source_size = os.path.getsize(source_path)
+        source_sha256 = self._sha256_file(source_path)
+        remote_dir = f'{self.home}/cmab_checkpoints'
+        remote_path = f'{remote_dir}/current.pkl'
+        controller_hosts = list(dict.fromkeys(
+            Committee.ip(address) for address in primary_addresses
+        ))
+
+        Print.info(
+            f'Distributing RL checkpoint from node0: {source_path} '
+            f'({source_size} bytes, sha256={source_sha256[:12]}...)'
+        )
+        for host in controller_hosts:
+            temporary_path = (
+                f'{remote_path}.upload-{os.getpid()}-{source_sha256[:12]}'
+            )
+            c = Connection(
+                host,
+                user=self.settings.username,
+                connect_kwargs=self.connect,
+            )
+            try:
+                c.run(f'mkdir -p {shlex.quote(remote_dir)}', hide=True)
+                c.put(source_path, remote=temporary_path)
+                result = c.run(
+                    f'sha256sum {shlex.quote(temporary_path)}', hide=True
+                )
+                remote_sha256 = result.stdout.strip().split()[0]
+                if remote_sha256 != source_sha256:
+                    raise ValueError(
+                        f'checkpoint checksum mismatch on {host}: '
+                        f'expected {source_sha256}, got {remote_sha256}'
+                    )
+                c.run(
+                    f'mv -f {shlex.quote(temporary_path)} '
+                    f'{shlex.quote(remote_path)}',
+                    hide=True,
+                )
+                Print.info(f'  Checkpoint ready on {host}: {remote_path}')
+            except Exception as e:
+                raise BenchError(
+                    f'Failed to distribute RL checkpoint to {host}', e
+                ) from e
+            finally:
+                c.close()
+
+        return remote_path
 
     @staticmethod
     def _split_host_port(address):
@@ -568,11 +673,26 @@ class CloudLabBench:
         Print.info(f'RL controllers enabled: {enable_rl}')
         if enable_rl:
             Print.info('Starting RL controllers...')
-            resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
+            enable_checkpoint = getattr(
+                bench_parameters,
+                'enable_checkpoint',
+                bool(getattr(bench_parameters, 'cmab_resume_from', None)),
+            )
+            checkpoint_path = getattr(bench_parameters, 'checkpoint_path', None)
+            resume_from = None
+            if enable_checkpoint and checkpoint_path:
+                resume_from = self._distribute_checkpoint(
+                    checkpoint_path, primary_addresses
+                )
+            elif enable_checkpoint:
+                # Backward compatibility: this path must already exist on
+                # every controller node and is not copied by Fabric.
+                resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
             rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
             warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
             Print.info(f'RL algo: {rl_algo}')
             Print.info(f'RL warmup iterations: {warmup_iterations}')
+            Print.info(f'RL checkpoint enabled: {enable_checkpoint}')
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
             for i, address in enumerate(primary_addresses):
@@ -752,6 +872,17 @@ class CloudLabBench:
             node_parameters = NodeParameters(node_parameters_dict)
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
+
+        # Capture the user-selected file before `_update` runs git reset on
+        # CloudLab hosts. This matters when node0 is also an experiment node.
+        if (
+            bench_parameters.enable_rl
+            and bench_parameters.enable_checkpoint
+            and bench_parameters.checkpoint_path
+        ):
+            bench_parameters.checkpoint_path = self._stage_checkpoint_on_node0(
+                bench_parameters.checkpoint_path
+            )
 
         # Select which hosts to use.
         selected_hosts, node_regions = self._select_hosts(bench_parameters)

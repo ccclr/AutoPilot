@@ -269,6 +269,38 @@ class BenchParameters:
                     raise ConfigError('cmab_resume_from must be a string path or null')
                 self.cmab_resume_from = resume_from
 
+            # CloudLab checkpoint switch. When checkpoint_path is set, it is a
+            # path on the node running `fab remote` (normally node0); Fabric
+            # copies that file to every controller node before startup.
+            #
+            # Defaulting to bool(cmab_resume_from) keeps older configurations
+            # working. An explicit false always means a cold start.
+            enable_checkpoint = json.get(
+                'enable_checkpoint', bool(self.cmab_resume_from)
+            )
+            if not isinstance(enable_checkpoint, bool):
+                raise ConfigError('enable_checkpoint must be true or false')
+            self.enable_checkpoint = enable_checkpoint
+
+            checkpoint_path = json.get('checkpoint_path', None)
+            if checkpoint_path in (None, '', False):
+                self.checkpoint_path = None
+            else:
+                if not isinstance(checkpoint_path, str):
+                    raise ConfigError('checkpoint_path must be a string path or null')
+                self.checkpoint_path = checkpoint_path
+
+            if (
+                self.enable_rl
+                and self.enable_checkpoint
+                and self.checkpoint_path is None
+                and self.cmab_resume_from is None
+            ):
+                raise ConfigError(
+                    'enable_checkpoint=true requires checkpoint_path '
+                    'or legacy cmab_resume_from'
+                )
+
             # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB BO).
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
