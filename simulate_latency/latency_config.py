@@ -7,32 +7,28 @@ NODES = {
     "node3": "10.10.1.4",
 }
 
-
-# 单向 delay (ms)
-# latency[src][dst]
-
 LATENCY = {
     "node0": {
         "node1": 50,
         "node2": 50,
-        "node3": 20,
+        "node3": 60,
     },
 
     "node1": {
         "node0": 50,
-        "node2": 100,
-        "node3": 30,
+        "node2": 30,
+        "node3": 10,
     },
 
     "node2": {
         "node0": 50,
-        "node1": 100,
-        "node3": 40,
+        "node1": 30,
+        "node3": 10,
     },
 
     "node3": {
-        "node0": 20,
-        "node1": 30,
-        "node2": 40,
+        "node0": 60,
+        "node1": 10,
+        "node2": 10,
     },
 }

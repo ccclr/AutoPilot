@@ -2,7 +2,8 @@
 Gaussian Process Bayesian Optimization with mixed action space.
 
 - Discrete dims: batch_size, header_size, cut_condition_type, k (enumerated)
-- Continuous dim: fast_path_timeout_ms in codec bounds, optimized on a 1D grid
+- Continuous dim: fast_path_timeout_ms; per-base UCB maximized continuously
+  with multi-start L-BFGS-B from Uniform random seeds (timeout_grid_size = n_restarts)
 
 API stays CMAB-compatible: select_arm / update / save / load.
 """
@@ -15,6 +16,7 @@ from collections import deque
 from typing import Iterable, Optional
 
 import numpy as np
+from scipy.optimize import minimize
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, Matern, WhiteKernel
 
@@ -44,6 +46,7 @@ class GPBOPolicy:
         timeout_grid_size: int = 31,
     ):
         self.mixed_space = mixed_space
+        # Number of multi-start seeds for continuous timeout UCB maximization.
         self._timeout_grid_size = max(2, int(timeout_grid_size))
         if mixed_space is not None:
             self._bases = mixed_space.list_bases()
@@ -171,15 +174,9 @@ class GPBOPolicy:
             candidates = [b for b, c in zip(self._bases, counts) if c == min_count]
             bidx = self._shared_rng_index(len(candidates), shared_seed_hex, "gp_bo_base")
             base = candidates[bidx]
-            # Spread timeout: low / mid / high then uniform.
-            grid = self.mixed_space.timeout_grid(min(5, self._timeout_grid_size))
-            tidx = self._shared_rng_index(len(grid), shared_seed_hex, "gp_bo_timeout")
-            # With more samples, sample continuously in [0,1].
-            if len(self._y) >= len(grid):
-                u = self._shared_rng_uniform(shared_seed_hex, "gp_bo_timeout_u")
-                timeout = self.mixed_space.denormalize_timeout(u)
-            else:
-                timeout = grid[tidx]
+            # Continuous uniform timeout in [lo, hi].
+            u = self._shared_rng_uniform(shared_seed_hex, "gp_bo_timeout_u")
+            timeout = self.mixed_space.denormalize_timeout(u)
             chosen = self.mixed_space.make_arm(base, timeout)
             logger.info(
                 "GP-BO mixed cold start: base=%s timeout=%.1f arm=%s",
@@ -202,13 +199,187 @@ class GPBOPolicy:
         )
         return chosen
 
-    def _candidate_arms_mixed(self) -> list[str]:
-        grid = self.mixed_space.timeout_grid(self._timeout_grid_size)
-        arms = []
-        for base in self._bases:
-            for timeout in grid:
-                arms.append(self.mixed_space.make_arm(base, timeout))
-        return arms
+    def _predict_ucb(self, features: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mean, std = self._gp.predict(features, return_std=True)
+        mean = np.asarray(mean, dtype=np.float64)
+        std = np.maximum(np.asarray(std, dtype=np.float64), 1e-9)
+        ucb = mean + self.kappa * std
+        return mean, std, ucb
+
+    def _feature_row_from_parts(
+        self, context, base: tuple[int, int, int, int], timeout_ms: float
+    ) -> np.ndarray:
+        b, h, c, k = base
+        arm_vec = np.asarray([b, h, c, float(timeout_ms), k], dtype=np.float32)
+        arm_n = self._normalize_action_vector(arm_vec)
+        if self._uses_context and context is not None:
+            ctx_vec = np.asarray(context, dtype=np.float32).flatten()
+            return np.concatenate([ctx_vec, arm_n])
+        return arm_n
+
+    def _ucb_at_timeout(self, context, base, timeout_ms: float) -> tuple[float, float, float, str]:
+        # Evaluate UCB on the continuous timeout; round only when emitting the arm id.
+        feat = np.asarray(
+            [self._feature_row_from_parts(context, base, timeout_ms)],
+            dtype=np.float32,
+        )
+        mean, std, ucb = self._predict_ucb(feat)
+        arm = self.mixed_space.make_arm(base, timeout_ms)
+        return float(ucb[0]), float(mean[0]), float(std[0]), arm
+
+    def _maximize_ucb_timeout_for_base(
+        self, context, base
+    ) -> tuple[float, float, float, float, str]:
+        """
+        Continuously maximize UCB over timeout in [lo, hi] for a fixed discrete base.
+
+        Returns (timeout_ms, ucb, mean, std, arm).
+        """
+        lo = self.mixed_space.timeout_lo
+        hi = self.mixed_space.timeout_hi
+        if hi <= lo:
+            ucb, mean, std, arm = self._ucb_at_timeout(context, base, lo)
+            return lo, ucb, mean, std, arm
+
+        starts = np.asarray(
+            [
+                lo,
+                hi,
+                *[
+                    float(x)
+                    for x in np.random.default_rng(
+                        self._stable_int(
+                            "gp_bo_restarts",
+                            base,
+                            self._update_count,
+                            len(self._y),
+                        )
+                    ).uniform(lo, hi, size=self._timeout_grid_size)
+                ],
+            ],
+            dtype=np.float64,
+        )
+        # Evaluate random / endpoint seeds, then refine the best few with L-BFGS-B.
+        seed_feats = np.asarray(
+            [self._feature_row_from_parts(context, base, float(t)) for t in starts],
+            dtype=np.float32,
+        )
+        seed_mean, seed_std, seed_ucb = self._predict_ucb(seed_feats)
+        best_idx = int(np.argmax(seed_ucb))
+        best_timeout = float(starts[best_idx])
+        best_ucb = float(seed_ucb[best_idx])
+        best_mean = float(seed_mean[best_idx])
+        best_std = float(seed_std[best_idx])
+        best_arm = self.mixed_space.make_arm(base, best_timeout)
+
+        n_refine = min(5, len(starts))
+        refine_order = np.argsort(seed_ucb)[::-1][:n_refine]
+        # Always include endpoints among refine starts.
+        endpoint_idxs = [0, len(starts) - 1]
+        refine_idxs = list(dict.fromkeys([*refine_order.tolist(), *endpoint_idxs]))
+
+        def neg_ucb(x: np.ndarray) -> float:
+            ucb, _, _, _ = self._ucb_at_timeout(context, base, float(x[0]))
+            return -ucb
+
+        for idx in refine_idxs:
+            t0 = float(starts[idx])
+            try:
+                res = minimize(
+                    neg_ucb,
+                    x0=np.asarray([t0], dtype=np.float64),
+                    method="L-BFGS-B",
+                    bounds=[(lo, hi)],
+                    options={"maxiter": 64, "ftol": 1e-9},
+                )
+            except Exception as e:
+                logger.debug("L-BFGS-B failed for base=%s t0=%.3f: %s", base, t0, e)
+                continue
+
+            t_star = float(np.clip(res.x[0], lo, hi))
+            ucb, mean, std, arm = self._ucb_at_timeout(context, base, t_star)
+            if ucb > best_ucb + 1e-12 or (
+                np.isclose(ucb, best_ucb) and t_star < best_timeout
+            ):
+                best_timeout, best_ucb, best_mean, best_std, best_arm = (
+                    t_star,
+                    ucb,
+                    mean,
+                    std,
+                    arm,
+                )
+
+        return best_timeout, best_ucb, best_mean, best_std, best_arm
+
+    def _select_arm_mixed_continuous(self, context, shared_seed_hex: str | None = None):
+        logger.info(
+            "GPBO_INFERENCE_START mixed=continuous_ucb bases=%d restarts=%d",
+            len(self._bases),
+            self._timeout_grid_size,
+        )
+        results = []
+        try:
+            for base in self._bases:
+                timeout, ucb, mean, std, arm = self._maximize_ucb_timeout_for_base(
+                    context, base
+                )
+                results.append(
+                    {
+                        "base": base,
+                        "timeout": timeout,
+                        "ucb": ucb,
+                        "mean": mean,
+                        "std": std,
+                        "arm": arm,
+                    }
+                )
+        except Exception as e:
+            logger.warning("GP continuous UCB max failed (%s); falling back to cold start", e)
+            return self._cold_start_arm(shared_seed_hex)
+        logger.info("GPBO_INFERENCE_DONE")
+
+        results.sort(key=lambda r: (-r["ucb"], r["timeout"]))
+        topk = min(self._monitor_topk, len(results))
+        logger.info("================================================================================")
+        logger.info("GP-BO SELECT ARM (UCB, continuous timeout)")
+        logger.info("Context: %s", np.asarray(context))
+        logger.info(
+            "kappa=%.3f samples=%d timeout_restarts=%d bounds=[%.1f, %.1f]",
+            self.kappa,
+            len(self._y),
+            self._timeout_grid_size,
+            self.mixed_space.timeout_lo,
+            self.mixed_space.timeout_hi,
+        )
+        for rank, row in enumerate(results[:topk], start=1):
+            logger.info(
+                "  #%d: arm=%s mean=%.6f std=%.6f ucb=%.6f timeout=%.3f",
+                rank,
+                row["arm"],
+                row["mean"],
+                row["std"],
+                row["ucb"],
+                row["timeout"],
+            )
+
+        best_ucb = results[0]["ucb"]
+        tied = [i for i, r in enumerate(results) if np.isclose(r["ucb"], best_ucb)]
+        if len(tied) > 1 and shared_seed_hex:
+            pick = self._shared_rng_index(len(tied), shared_seed_hex, "gp_bo_tie")
+            chosen = results[tied[pick]]
+        else:
+            chosen = results[tied[0]]
+
+        logger.info(
+            "✓ SELECTED ARM: %s (ucb=%.6f mean=%.6f std=%.6f timeout=%.3f)",
+            chosen["arm"],
+            chosen["ucb"],
+            chosen["mean"],
+            chosen["std"],
+            chosen["timeout"],
+        )
+        logger.info("================================================================================")
+        return chosen["arm"]
 
     def select_arm(self, context, shared_seed_hex: str | None = None):
         if (
@@ -219,10 +390,9 @@ class GPBOPolicy:
             return self._cold_start_arm(shared_seed_hex)
 
         if self.mixed_space is not None:
-            candidates = self._candidate_arms_mixed()
-        else:
-            candidates = list(self._arms)
+            return self._select_arm_mixed_continuous(context, shared_seed_hex)
 
+        candidates = list(self._arms)
         features = np.asarray(
             [self._feature_row(context, arm) for arm in candidates],
             dtype=np.float32,
@@ -230,30 +400,21 @@ class GPBOPolicy:
         logger.info(
             "GPBO_INFERENCE_START candidates=%d mixed=%s",
             len(candidates),
-            self.mixed_space is not None,
+            False,
         )
         try:
-            mean, std = self._gp.predict(features, return_std=True)
+            mean, std, ucb = self._predict_ucb(features)
         except Exception as e:
             logger.warning("GP predict failed (%s); falling back to cold start", e)
             return self._cold_start_arm(shared_seed_hex)
         logger.info("GPBO_INFERENCE_DONE")
 
-        std = np.maximum(np.asarray(std, dtype=np.float64), 1e-9)
-        mean = np.asarray(mean, dtype=np.float64)
-        ucb = mean + self.kappa * std
-
         topk = min(self._monitor_topk, len(candidates))
         top_ucb_idx = np.argsort(ucb)[::-1][:topk]
         logger.info("================================================================================")
-        logger.info("GP-BO SELECT ARM (UCB%s)", ", mixed timeout" if self.mixed_space else "")
+        logger.info("GP-BO SELECT ARM (UCB)")
         logger.info("Context: %s", np.asarray(context))
-        logger.info(
-            "kappa=%.3f samples=%d timeout_grid=%s",
-            self.kappa,
-            len(self._y),
-            self._timeout_grid_size if self.mixed_space else "n/a",
-        )
+        logger.info("kappa=%.3f samples=%d", self.kappa, len(self._y))
         for rank, idx in enumerate(top_ucb_idx, start=1):
             logger.info(
                 "  #%d: arm=%s mean=%.6f std=%.6f ucb=%.6f",

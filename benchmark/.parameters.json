@@ -29,7 +29,7 @@
         0
     ],
     "epoch_slots": 32,
-    "fast_path_timeout": 160,
+    "fast_path_timeout": 10,
     "gc_depth": 50,
     "header_size": 32,
     "k": 4,

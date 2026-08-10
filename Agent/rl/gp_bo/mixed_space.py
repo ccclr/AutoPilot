@@ -1,5 +1,5 @@
 """
-Mixed action space helpers for GP-BO.
+Mixed action space helpers for GP-BO / KernelUCB.
 
 Discrete dims are enumerated; fast_path_timeout is continuous in
 codec.fast_path_timeout_ms_bounds and rounded to int ms when emitted.
@@ -104,15 +104,6 @@ class MixedActionSpace:
     def denormalize_timeout(self, unit: float) -> float:
         u = float(np_clip(unit, 0.0, 1.0))
         return self.timeout_lo + u * (self.timeout_hi - self.timeout_lo)
-
-    def timeout_grid(self, n_grid: int) -> List[float]:
-        n = max(2, int(n_grid))
-        if self.timeout_hi <= self.timeout_lo:
-            return [self.timeout_lo]
-        return list(
-            self.timeout_lo + i * (self.timeout_hi - self.timeout_lo) / (n - 1) for i in range(n)
-        )
-
 
 def np_clip(x: float, lo: float, hi: float) -> float:
     return float(min(max(float(x), lo), hi))

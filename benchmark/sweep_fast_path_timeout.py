@@ -368,10 +368,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Sweep fast_path_timeout with independent fab-remote-equivalent runs")
     parser.add_argument(
         "--timeouts",
-        default="20,40,60,80,100,120,140,160,180,200",
+        default="10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200",
         help="Comma-separated timeout list in ms",
     )
-    parser.add_argument("--trials", type=int, default=4, help="Independent full runs per timeout (default 4)")
+    parser.add_argument("--trials", type=int, default=3, help="Independent full runs per timeout")
     parser.add_argument("--retries", type=int, default=1, help="Extra retries per trial on failure (default 1)")
     parser.add_argument("--debug", action="store_true", default=True)
     parser.add_argument("--no-debug", action="store_true", help="Disable debug logging for node binaries")

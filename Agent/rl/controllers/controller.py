@@ -114,10 +114,10 @@ class AutopilotController:
             node_index: node index for logging
             log_dir: log directory
             resume_from: optional policy checkpoint path
-            rl_algo: "cmab" (RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization)
+            rl_algo: "cmab" (RF-TS), "gp_bo" (GP-UCB), or "kernel_ucb" (KernelUCB)
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
-                GP-BO: collect N cold-start samples before first GP fit.
+                GP-BO / KernelUCB: collect N cold-start samples before first model fit.
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -126,7 +126,7 @@ class AutopilotController:
         self.resume_from = resume_from
         self.rl_algo = (rl_algo or "cmab").lower()
         self.warmup_iterations = max(0, int(warmup_iterations))
-        if self.rl_algo not in ("cmab", "gp_bo"):
+        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
         self._rl_root = Path(__file__).resolve().parent.parent
@@ -169,12 +169,16 @@ class AutopilotController:
     def _training_script_name(self) -> str:
         if self.rl_algo == "gp_bo":
             return "train_gp_bo.py"
+        if self.rl_algo == "kernel_ucb":
+            return "train_kernel_ucb.py"
         return "train_cmab_continuous.py"
 
     def _checkpoint_dir(self) -> Path:
         home = Path.home()
         if self.rl_algo == "gp_bo":
             return home / "gp_bo_checkpoints"
+        if self.rl_algo == "kernel_ucb":
+            return home / "kernel_ucb_checkpoints"
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
@@ -313,15 +317,15 @@ def main():
     parser.add_argument('--resume-from', type=str, default=None,
                        help='Resume RL policy from checkpoint path')
     parser.add_argument('--rl-algo', type=str, default='cmab',
-                       choices=['cmab', 'gp_bo'],
-                       help='RL algorithm: cmab (RF-TS) or gp_bo (GP-UCB)')
+                       choices=['cmab', 'gp_bo', 'kernel_ucb'],
+                       help='RL algorithm: cmab (RF-TS), gp_bo (GP-UCB), or kernel_ucb')
     parser.add_argument(
         '--warmup-iterations',
         type=int,
         default=5,
         help=(
             'Unified warmup: CMAB skips updates for N iters; '
-            'GP-BO collects N cold-start samples before fit'
+            'GP-BO/KernelUCB collect N cold-start samples before fit'
         ),
     )
 
