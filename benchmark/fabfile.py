@@ -54,6 +54,12 @@ def local(ctx, debug=False):
         'reward_change_lag': 3,
         'reward_change_threshold': 0.30,
         'reward_change_confirmations': 3,
+        # Phase one: report the nearest A/B experience pool without replaying it.
+        'enable_experience_matching': False,
+        'experience_checkpoint_a': None,
+        'experience_checkpoint_b': None,
+        'experience_pool_size': 200,
+        'experience_match_reward_count': 3,
 
         # Unused
         'simulate_partition': False,
@@ -193,20 +199,31 @@ def remote(ctx, debug=False):
         # Set these two values on node0 before each run. Fabric snapshots this
         # file before git reset, then copies it to every controller node.
         'enable_checkpoint': True,
-        'checkpoint_path': '/local/autopilot/cmab_checkpoint.pkl',
+        'checkpoint_path': '/local/checkpoint_library/cmab_A_340.pkl',
         # Legacy mode only: a path that already exists on every remote node.
         'cmab_resume_from': None,
         # RL algorithm: "cmab" or "gp_bo"
         'rl_algo': 'cmab',
+        # Let CMAB train normally. Experience matching remains report-only and
+        # does not inject A/B checkpoint samples into the active replay bucket.
         'rl_warmup_iterations': 0,
         # Maximum training iterations in this run. None = train until experiment ends.
         'rl_max_training_iterations': 200,
 
         # Environment-change detector (relative change between reward windows).
-        'reward_change_window_size': 8,
+        'reward_change_window_size': 10,
         'reward_change_lag': 3,
+        # Confirm an environment change when the relative reward-window score
+        # stays above 30% for the configured number of confirmations.
         'reward_change_threshold': 0.30,
         'reward_change_confirmations': 3,
+        # Phase one: detect a change and only print whether A or B is closer.
+        # These node0-local files are distributed to every monitor by Fabric.
+        'enable_experience_matching': True,
+        'experience_checkpoint_a': '/local/checkpoint_library/cmab_A_340.pkl',
+        'experience_checkpoint_b': '/local/checkpoint_library/cmab_B_220.pkl',
+        'experience_pool_size': 200,
+        'experience_match_reward_count': 3,
 
         # Unused
         'simulate_partition': False,
@@ -253,7 +270,8 @@ def remote(ctx, debug=False):
         'affected_nodes': [2, 2],
         'asynchrony_nodes': [2, 2],
         'asynchrony_regions': [['utah'], ['utah']],
-        'egress_penalty': [[[200, 200]], [[200, 200]]],
+        # Match the B environment used to produce cmab_B_220.pkl.
+        'egress_penalty': [[[100, 100]], [[100, 100]]],
 
         'use_fast_sync': True,
         'use_exponential_timeouts': True,

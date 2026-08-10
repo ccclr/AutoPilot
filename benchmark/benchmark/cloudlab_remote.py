@@ -289,6 +289,45 @@ class CloudLabBench:
         )
         return stage_path
 
+    def _stage_experience_checkpoint_on_node0(self, checkpoint_path, label):
+        """Snapshot one read-only experience checkpoint before remote git updates."""
+        source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
+        if not os.path.isfile(source_path):
+            raise BenchError(
+                f'Cannot stage experience checkpoint {label}',
+                FileNotFoundError(
+                    f'experience_checkpoint_{label.lower()} does not exist on node0: '
+                    f'{source_path}'
+                ),
+            )
+
+        source_sha256 = self._sha256_file(source_path)
+        stage_dir = f'{self.home}/cmab_experience_sources'
+        stage_path = f'{stage_dir}/{label}.pkl'
+        temporary_path = (
+            f'{stage_path}.stage-{os.getpid()}-{source_sha256[:12]}'
+        )
+        try:
+            os.makedirs(stage_dir, exist_ok=True)
+            shutil.copyfile(source_path, temporary_path)
+            staged_sha256 = self._sha256_file(temporary_path)
+            if staged_sha256 != source_sha256:
+                raise ValueError(
+                    f'node0 experience checkpoint {label} staging checksum mismatch: '
+                    f'expected {source_sha256}, got {staged_sha256}'
+                )
+            os.replace(temporary_path, stage_path)
+        except Exception as e:
+            raise BenchError(
+                f'Failed to stage experience checkpoint {label} on node0', e
+            ) from e
+
+        Print.info(
+            f'Staged node0 experience checkpoint {label}: '
+            f'{source_path} -> {stage_path} (sha256={source_sha256[:12]}...)'
+        )
+        return stage_path
+
     def _distribute_checkpoint(self, checkpoint_path, primary_addresses):
         """Copy one node0-local checkpoint to every controller node."""
         source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
@@ -347,6 +386,78 @@ class CloudLabBench:
                 c.close()
 
         return remote_path
+
+    def _distribute_experience_checkpoints(
+        self, checkpoint_a, checkpoint_b, primary_addresses
+    ):
+        """Copy the read-only A/B matching pools to every monitor node."""
+        sources = {'A': checkpoint_a, 'B': checkpoint_b}
+        remote_dir = f'{self.home}/cmab_experience_pools'
+        controller_hosts = list(dict.fromkeys(
+            Committee.ip(address) for address in primary_addresses
+        ))
+        remote_paths = {}
+
+        for label, checkpoint_path in sources.items():
+            source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
+            if not os.path.isfile(source_path):
+                raise BenchError(
+                    f'Cannot distribute experience checkpoint {label}',
+                    FileNotFoundError(
+                        f'experience checkpoint does not exist on node0: {source_path}'
+                    ),
+                )
+
+            source_size = os.path.getsize(source_path)
+            source_sha256 = self._sha256_file(source_path)
+            remote_path = f'{remote_dir}/{label}.pkl'
+            Print.info(
+                f'Distributing experience checkpoint {label} from node0: '
+                f'{source_path} ({source_size} bytes, '
+                f'sha256={source_sha256[:12]}...)'
+            )
+
+            for host in controller_hosts:
+                temporary_path = (
+                    f'{remote_path}.upload-{os.getpid()}-{source_sha256[:12]}'
+                )
+                c = Connection(
+                    host,
+                    user=self.settings.username,
+                    connect_kwargs=self.connect,
+                )
+                try:
+                    c.run(f'mkdir -p {shlex.quote(remote_dir)}', hide=True)
+                    c.put(source_path, remote=temporary_path)
+                    result = c.run(
+                        f'sha256sum {shlex.quote(temporary_path)}', hide=True
+                    )
+                    remote_sha256 = result.stdout.strip().split()[0]
+                    if remote_sha256 != source_sha256:
+                        raise ValueError(
+                            f'experience checkpoint {label} checksum mismatch on '
+                            f'{host}: expected {source_sha256}, got {remote_sha256}'
+                        )
+                    c.run(
+                        f'mv -f {shlex.quote(temporary_path)} '
+                        f'{shlex.quote(remote_path)}',
+                        hide=True,
+                    )
+                    Print.info(
+                        f'  Experience checkpoint {label} ready on {host}: '
+                        f'{remote_path}'
+                    )
+                except Exception as e:
+                    raise BenchError(
+                        f'Failed to distribute experience checkpoint {label} '
+                        f'to {host}',
+                        e,
+                    ) from e
+                finally:
+                    c.close()
+            remote_paths[label] = remote_path
+
+        return remote_paths
 
     @staticmethod
     def _split_host_port(address):
@@ -668,6 +779,20 @@ class CloudLabBench:
         Print.info('Waiting for all workers to be ready...')
         self._wait_for_tcp_listeners(worker_listener_addresses, timeout_sec=90, label='workers')
 
+        experience_checkpoint_paths = None
+        if getattr(bench_parameters, 'enable_experience_matching', False):
+            Print.info('Experience matching enabled: True')
+            experience_checkpoint_paths = self._distribute_experience_checkpoints(
+                bench_parameters.experience_checkpoint_a,
+                bench_parameters.experience_checkpoint_b,
+                primary_addresses,
+            )
+            Print.info(
+                'Experience matching mode: report-only (bucket_modified=False)'
+            )
+        else:
+            Print.info('Experience matching enabled: False')
+
         # Start controller for RL training only when enabled for this experiment.
         enable_rl = getattr(bench_parameters, 'enable_rl', True)
         Print.info(f'RL controllers enabled: {enable_rl}')
@@ -752,6 +877,12 @@ class CloudLabBench:
         reward_change_confirmations = getattr(
             bench_parameters, 'reward_change_confirmations', 3
         )
+        experience_pool_size = getattr(
+            bench_parameters, 'experience_pool_size', 200
+        )
+        experience_match_reward_count = getattr(
+            bench_parameters, 'experience_match_reward_count', 3
+        )
         Print.info(
             'Reward change detector: '
             f'window={reward_change_window_size}, lag={reward_change_lag}, '
@@ -769,6 +900,16 @@ class CloudLabBench:
                 lag=reward_change_lag,
                 threshold=reward_change_threshold,
                 confirmations=reward_change_confirmations,
+                experience_checkpoint_a=(
+                    experience_checkpoint_paths['A']
+                    if experience_checkpoint_paths else None
+                ),
+                experience_checkpoint_b=(
+                    experience_checkpoint_paths['B']
+                    if experience_checkpoint_paths else None
+                ),
+                experience_pool_size=experience_pool_size,
+                experience_match_reward_count=experience_match_reward_count,
             )
             log_file = join(PathMaker.logs_path(), f'reward_change_monitor-{i}.log')
             self._background_run(host, cmd, log_file)
@@ -910,6 +1051,18 @@ class CloudLabBench:
         ):
             bench_parameters.checkpoint_path = self._stage_checkpoint_on_node0(
                 bench_parameters.checkpoint_path
+            )
+
+        if bench_parameters.enable_experience_matching:
+            bench_parameters.experience_checkpoint_a = (
+                self._stage_experience_checkpoint_on_node0(
+                    bench_parameters.experience_checkpoint_a, 'A'
+                )
+            )
+            bench_parameters.experience_checkpoint_b = (
+                self._stage_experience_checkpoint_on_node0(
+                    bench_parameters.experience_checkpoint_b, 'B'
+                )
             )
 
         # Select which hosts to use.

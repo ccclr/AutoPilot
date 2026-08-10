@@ -382,6 +382,38 @@ class BenchParameters:
                 )
             self.reward_change_threshold = threshold
 
+            # Optional phase-one A/B experience matching. The monitor only
+            # reports the nearest checkpoint pool; it never mutates CMAB data.
+            enable_experience_matching = json.get(
+                'enable_experience_matching', False
+            )
+            if not isinstance(enable_experience_matching, bool):
+                raise ConfigError('enable_experience_matching must be true or false')
+            self.enable_experience_matching = enable_experience_matching
+
+            def optional_path(name):
+                value = json.get(name, None)
+                if value in (None, '', False):
+                    return None
+                if not isinstance(value, str):
+                    raise ConfigError(f'{name} must be a string path or null')
+                return value
+
+            self.experience_checkpoint_a = optional_path('experience_checkpoint_a')
+            self.experience_checkpoint_b = optional_path('experience_checkpoint_b')
+            if self.enable_experience_matching and (
+                self.experience_checkpoint_a is None
+                or self.experience_checkpoint_b is None
+            ):
+                raise ConfigError(
+                    'enable_experience_matching=true requires '
+                    'experience_checkpoint_a and experience_checkpoint_b'
+                )
+            self.experience_pool_size = positive_int('experience_pool_size', 200)
+            self.experience_match_reward_count = positive_int(
+                'experience_match_reward_count', 3
+            )
+
             self.simulate_partition = bool(json['simulate_partition'])
 
             self.partition_nodes = int(json['partition_nodes'])

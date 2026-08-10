@@ -5,16 +5,20 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import signal
 import threading
+from collections import deque
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 try:
     from .reward_change_detector import RewardChangeDetector, RewardChangeResult
+    from .experience_matcher import ABExperienceMatcher
 except ImportError:
     # Support direct execution with this file's directory on sys.path.
     from reward_change_detector import RewardChangeDetector, RewardChangeResult
+    from experience_matcher import ABExperienceMatcher
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +33,7 @@ class RewardChangeMonitor:
         node_index: Optional[int] = None,
         poll_interval: float = 0.2,
         detector: Optional[RewardChangeDetector] = None,
+        experience_matcher: Optional[ABExperienceMatcher] = None,
     ) -> None:
         if poll_interval <= 0:
             raise ValueError("poll_interval must be positive")
@@ -38,6 +43,9 @@ class RewardChangeMonitor:
         self.node_index = node_index
         self.poll_interval = poll_interval
         self.detector = detector or RewardChangeDetector()
+        self.experience_matcher = experience_matcher
+        reward_count = experience_matcher.reward_count if experience_matcher else 3
+        self._recent_valid_rewards: deque[float] = deque(maxlen=reward_count)
         self.next_epoch = 0
         self._stop_event = threading.Event()
 
@@ -73,6 +81,12 @@ class RewardChangeMonitor:
             reward = state.get("global_reward")
             count_before = self.detector.observation_count
             result = self.detector.observe(reward)
+            try:
+                value = float(reward)
+            except (TypeError, ValueError):
+                value = None
+            if value is not None and math.isfinite(value) and value > 0:
+                self._recent_valid_rewards.append(value)
             self.next_epoch += 1
 
             if result is None:
@@ -123,8 +137,39 @@ class RewardChangeMonitor:
                     result.consecutive_exceedances,
                     result.confirmation_count,
                 )
+                self._log_experience_match(epoch)
 
         return processed
+
+    def _log_experience_match(self, epoch: int) -> None:
+        matcher = self.experience_matcher
+        if matcher is None:
+            return
+        try:
+            match = matcher.match(self._recent_valid_rewards)
+        except ValueError as error:
+            logger.error(
+                "EXPERIENCE_MATCH_SKIPPED node=%s epoch=%s reason=%s bucket_modified=False",
+                self.node_index,
+                epoch,
+                error,
+            )
+            return
+
+        logger.warning(
+            "EXPERIENCE_MATCH_RESULT node=%s epoch=%s recent_rewards=%s "
+            "query_mean=%.6f A_mean=%.6f A_distance=%.6f "
+            "B_mean=%.6f B_distance=%.6f matched_pool=%s bucket_modified=False",
+            self.node_index,
+            epoch,
+            [round(reward, 6) for reward in match.recent_rewards],
+            match.query_mean,
+            match.a_mean,
+            match.a_distance,
+            match.b_mean,
+            match.b_distance,
+            match.matched_pool,
+        )
 
     def run_forever(self) -> None:
         detector = self.detector
@@ -155,6 +200,10 @@ def main() -> None:
     parser.add_argument("--lag", type=int, default=3)
     parser.add_argument("--threshold", type=float, default=0.30)
     parser.add_argument("--confirmations", type=int, default=3)
+    parser.add_argument("--experience-checkpoint-a", type=str, default=None)
+    parser.add_argument("--experience-checkpoint-b", type=str, default=None)
+    parser.add_argument("--experience-pool-size", type=int, default=200)
+    parser.add_argument("--experience-match-reward-count", type=int, default=3)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -167,11 +216,35 @@ def main() -> None:
         threshold=args.threshold,
         confirmation_count=args.confirmations,
     )
+    if bool(args.experience_checkpoint_a) != bool(args.experience_checkpoint_b):
+        parser.error(
+            "--experience-checkpoint-a and --experience-checkpoint-b must be provided together"
+        )
+    experience_matcher = None
+    if args.experience_checkpoint_a and args.experience_checkpoint_b:
+        experience_matcher = ABExperienceMatcher(
+            checkpoint_a=args.experience_checkpoint_a,
+            checkpoint_b=args.experience_checkpoint_b,
+            pool_size=args.experience_pool_size,
+            reward_count=args.experience_match_reward_count,
+        )
+        for pool in experience_matcher.pools:
+            logger.info(
+                "EXPERIENCE_POOL_LOADED node=%s pool=%s path=%s total_samples=%d "
+                "used_samples=%d reward_mean=%.6f read_only=True",
+                args.node_index,
+                pool.label,
+                pool.path,
+                pool.total_samples,
+                pool.used_samples,
+                pool.reward_mean,
+            )
     monitor = RewardChangeMonitor(
         metrics_dir=args.metrics_dir,
         node_index=args.node_index,
         poll_interval=args.poll_interval,
         detector=detector,
+        experience_matcher=experience_matcher,
     )
 
     def request_stop(_signal_number, _frame) -> None:

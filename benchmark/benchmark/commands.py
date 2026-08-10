@@ -1,5 +1,6 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
 import os
+import shlex
 import subprocess
 from os.path import join
 
@@ -245,6 +246,10 @@ class CommandMaker:
         lag=None,
         threshold=None,
         confirmations=None,
+        experience_checkpoint_a=None,
+        experience_checkpoint_b=None,
+        experience_pool_size=None,
+        experience_match_reward_count=None,
     ):
         """Generate a command for reward change detection independent of training."""
         monitor_path = (
@@ -264,6 +269,23 @@ class CommandMaker:
             cmd += f' --threshold {float(threshold)}'
         if confirmations is not None:
             cmd += f' --confirmations {int(confirmations)}'
+        if experience_checkpoint_a is not None:
+            cmd += (
+                ' --experience-checkpoint-a '
+                f'{shlex.quote(str(experience_checkpoint_a))}'
+            )
+        if experience_checkpoint_b is not None:
+            cmd += (
+                ' --experience-checkpoint-b '
+                f'{shlex.quote(str(experience_checkpoint_b))}'
+            )
+        if experience_pool_size is not None:
+            cmd += f' --experience-pool-size {int(experience_pool_size)}'
+        if experience_match_reward_count is not None:
+            cmd += (
+                ' --experience-match-reward-count '
+                f'{int(experience_match_reward_count)}'
+            )
         return cmd
 
     @staticmethod
