@@ -165,8 +165,18 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=False):
-    ''' Run benchmarks on CloudLab '''
+def remote(ctx, debug=False, resume_from=None):
+    ''' Run benchmarks on CloudLab.
+
+    Optional:
+      fab remote --resume-from=/users/clr0302/checkpoints/cmab_checkpoint_10.pkl
+      AUTOPILOT_RESUME_FROM=/path/to/ckpt.pkl fab remote
+    '''
+    if resume_from in (None, '', 'None', 'null'):
+        resume_from = os.environ.get('AUTOPILOT_RESUME_FROM') or None
+    if resume_from in ('', 'None', 'null'):
+        resume_from = None
+
     bench_params = {
         'faults': 0,
         'nodes': [4],
@@ -174,13 +184,13 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 120,
+        'duration': 3000,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab" or "gp_bo"
-        'rl_algo': 'gp_bo',
+        # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
+        'rl_algo': 'kernel_ucb',
         'rl_warmup_iterations': 5,
 
         # Unused
@@ -188,16 +198,12 @@ def remote(ctx, debug=False):
         'partition_start': 5,
         'partition_duration': 5,
         'partition_nodes': 2,
-
-        # Hotspot nesting aligned with asynchrony/egress_penalty:
-        #   hotspot_regions      = [['utah']]
-        #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
-        #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
+        
         'enable_hotspot': False,
-        'hotspot_windows': [[ ]],
-        'hotspot_regions': [[ ]],
-        'hotspot_nodes': [[ ]],
-        'hotspot_region_rates': [[ ]],
+        'hotspot_windows': [[0, 3000]],
+        'hotspot_regions': [['apt']],
+        'hotspot_nodes': [2],
+        'hotspot_region_rates': [[0.5]], 
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -211,9 +217,9 @@ def remote(ctx, debug=False):
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 32,
-        'window_size': 16,
-        'applied_begin': 30,
+        'epoch_slots': 28,
+        'window_size': 8,
+        'applied_begin': 26,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,

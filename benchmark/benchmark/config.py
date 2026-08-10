@@ -262,16 +262,20 @@ class BenchParameters:
                     raise ConfigError('cmab_resume_from must be a string path or null')
                 self.cmab_resume_from = resume_from
 
-            # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB BO).
+            # RL algorithm: "cmab" (RF-TS), "gp_bo" (GP-UCB), or "kernel_ucb".
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
                 rl_algo = 'cmab'
-            if not isinstance(rl_algo, str) or rl_algo.lower() not in ('cmab', 'gp_bo'):
-                raise ConfigError('rl_algo must be "cmab" or "gp_bo"')
+            if not isinstance(rl_algo, str) or rl_algo.lower() not in (
+                'cmab',
+                'gp_bo',
+                'kernel_ucb',
+            ):
+                raise ConfigError('rl_algo must be "cmab", "gp_bo", or "kernel_ucb"')
             self.rl_algo = rl_algo.lower()
 
             # Unified warmup passed to controller/trainer:
-            # cmab -> skip N policy updates; gp_bo -> N cold-start samples before GP fit.
+            # cmab -> skip N policy updates; gp_bo/kernel_ucb -> N cold-start samples before fit.
             warmup = json.get('rl_warmup_iterations', 5)
             if warmup in (None, ''):
                 warmup = 5
