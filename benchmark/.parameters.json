@@ -1,7 +1,7 @@
 {
     "affected_nodes": [],
     "aggregation_strategy": "normal",
-    "applied_begin": 26,
+    "applied_begin": 28,
     "asynchrony_duration": [
         3000
     ],

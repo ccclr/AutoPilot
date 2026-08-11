@@ -191,7 +191,7 @@ def remote(ctx, debug=False, resume_from=None):
         'cmab_resume_from': "/users/clr0302/kernel_ucb_checkpoints/kernel_ucb_checkpoint_60.pkl",
         # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
         'rl_algo': 'kernel_ucb',
-        'rl_warmup_iterations': 3,
+        'rl_warmup_iterations': 5,
 
         # Unused
         'simulate_partition': False,
@@ -219,7 +219,7 @@ def remote(ctx, debug=False, resume_from=None):
         'k': 4,
         'epoch_slots': 32,
         'window_size': 8,
-        'applied_begin': 30,
+        'applied_begin': 28,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
