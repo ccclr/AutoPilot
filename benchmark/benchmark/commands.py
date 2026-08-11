@@ -299,6 +299,13 @@ class CommandMaker:
         rl_algo=None,
         warmup_iterations=None,
         max_training_iterations=None,
+        kernel_ucb_alpha=None,
+        kernel_ucb_regularization=None,
+        kernel_ucb_length_scale=None,
+        kernel_ucb_timeout_min=None,
+        kernel_ucb_timeout_max=None,
+        kernel_ucb_optimizer_restarts=None,
+        kernel_ucb_replay_window=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -317,4 +324,24 @@ class CommandMaker:
             cmd += f' --warmup-iterations {int(warmup_iterations)}'
         if max_training_iterations is not None:
             cmd += f' --max-training-iterations {int(max_training_iterations)}'
+        if kernel_ucb_alpha is not None:
+            cmd += f' --kernel-ucb-alpha {float(kernel_ucb_alpha)}'
+        if kernel_ucb_regularization is not None:
+            cmd += (
+                f' --kernel-ucb-regularization '
+                f'{float(kernel_ucb_regularization)}'
+            )
+        if kernel_ucb_length_scale is not None:
+            cmd += f' --kernel-ucb-length-scale {float(kernel_ucb_length_scale)}'
+        if kernel_ucb_timeout_min is not None:
+            cmd += f' --kernel-ucb-timeout-min {float(kernel_ucb_timeout_min)}'
+        if kernel_ucb_timeout_max is not None:
+            cmd += f' --kernel-ucb-timeout-max {float(kernel_ucb_timeout_max)}'
+        if kernel_ucb_optimizer_restarts is not None:
+            cmd += (
+                f' --kernel-ucb-optimizer-restarts '
+                f'{int(kernel_ucb_optimizer_restarts)}'
+            )
+        if kernel_ucb_replay_window is not None:
+            cmd += f' --kernel-ucb-replay-window {int(kernel_ucb_replay_window)}'
         return cmd

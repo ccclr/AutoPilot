@@ -818,6 +818,27 @@ class CloudLabBench:
             max_training_iterations = getattr(
                 bench_parameters, 'rl_max_training_iterations', 200
             )
+            kernel_ucb_alpha = getattr(
+                bench_parameters, 'kernel_ucb_alpha', 1.0
+            )
+            kernel_ucb_regularization = getattr(
+                bench_parameters, 'kernel_ucb_regularization', 0.1
+            )
+            kernel_ucb_length_scale = getattr(
+                bench_parameters, 'kernel_ucb_length_scale', 1.0
+            )
+            kernel_ucb_timeout_min = getattr(
+                bench_parameters, 'kernel_ucb_timeout_min', 1.0
+            )
+            kernel_ucb_timeout_max = getattr(
+                bench_parameters, 'kernel_ucb_timeout_max', 300.0
+            )
+            kernel_ucb_optimizer_restarts = getattr(
+                bench_parameters, 'kernel_ucb_optimizer_restarts', 5
+            )
+            kernel_ucb_replay_window = getattr(
+                bench_parameters, 'kernel_ucb_replay_window', 200
+            )
             Print.info(f'RL algo: {rl_algo}')
             Print.info(f'RL warmup iterations: {warmup_iterations}')
             Print.info(
@@ -825,6 +846,17 @@ class CloudLabBench:
                 f'{max_training_iterations if max_training_iterations is not None else "continuous"}'
             )
             Print.info(f'RL checkpoint enabled: {enable_checkpoint}')
+            if rl_algo == 'kernel_ucb':
+                Print.info(
+                    'KernelUCB: '
+                    f'alpha={kernel_ucb_alpha}, '
+                    f'lambda={kernel_ucb_regularization}, '
+                    f'length_scale={kernel_ucb_length_scale}, '
+                    f'timeout=0 or [{kernel_ucb_timeout_min}, '
+                    f'{kernel_ucb_timeout_max}] ms, '
+                    f'optimizer_restarts={kernel_ucb_optimizer_restarts}, '
+                    f'replay={kernel_ucb_replay_window}'
+                )
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
             for i, address in enumerate(primary_addresses):
@@ -839,6 +871,15 @@ class CloudLabBench:
                     rl_algo=rl_algo,
                     warmup_iterations=warmup_iterations,
                     max_training_iterations=max_training_iterations,
+                    kernel_ucb_alpha=kernel_ucb_alpha,
+                    kernel_ucb_regularization=kernel_ucb_regularization,
+                    kernel_ucb_length_scale=kernel_ucb_length_scale,
+                    kernel_ucb_timeout_min=kernel_ucb_timeout_min,
+                    kernel_ucb_timeout_max=kernel_ucb_timeout_max,
+                    kernel_ucb_optimizer_restarts=(
+                        kernel_ucb_optimizer_restarts
+                    ),
+                    kernel_ucb_replay_window=kernel_ucb_replay_window,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(host, cmd, log_file)
@@ -865,8 +906,14 @@ class CloudLabBench:
             self._background_run(host, cmd, log_file)
         sleep(2)
 
-        # Environment change detection runs independently of RL training.
-        Print.info('Starting reward change monitors...')
+        # Environment change detection runs independently of RL training and
+        # can be disabled for clean algorithm-comparison experiments.
+        enable_reward_change_monitor = getattr(
+            bench_parameters, 'enable_reward_change_monitor', True
+        )
+        Print.info(
+            f'Reward change monitors enabled: {enable_reward_change_monitor}'
+        )
         reward_change_window_size = getattr(
             bench_parameters, 'reward_change_window_size', 8
         )
@@ -883,36 +930,42 @@ class CloudLabBench:
         experience_match_reward_count = getattr(
             bench_parameters, 'experience_match_reward_count', 3
         )
-        Print.info(
-            'Reward change detector: '
-            f'window={reward_change_window_size}, lag={reward_change_lag}, '
-            f'threshold={reward_change_threshold}, '
-            f'confirmations={reward_change_confirmations}'
-        )
-        for i, address in enumerate(primary_addresses):
-            host = Committee.ip(address)
-            cmd = CommandMaker.run_reward_change_monitor(
-                node_index=i,
-                repo_name=self.settings.repo_name,
-                metrics_dir=f'{self.home}/metrics-{i}',
-                python_bin=CommandMaker.agent_venv_python(),
-                window_size=reward_change_window_size,
-                lag=reward_change_lag,
-                threshold=reward_change_threshold,
-                confirmations=reward_change_confirmations,
-                experience_checkpoint_a=(
-                    experience_checkpoint_paths['A']
-                    if experience_checkpoint_paths else None
-                ),
-                experience_checkpoint_b=(
-                    experience_checkpoint_paths['B']
-                    if experience_checkpoint_paths else None
-                ),
-                experience_pool_size=experience_pool_size,
-                experience_match_reward_count=experience_match_reward_count,
+        if enable_reward_change_monitor:
+            Print.info('Starting reward change monitors...')
+            Print.info(
+                'Reward change detector: '
+                f'window={reward_change_window_size}, lag={reward_change_lag}, '
+                f'threshold={reward_change_threshold}, '
+                f'confirmations={reward_change_confirmations}'
             )
-            log_file = join(PathMaker.logs_path(), f'reward_change_monitor-{i}.log')
-            self._background_run(host, cmd, log_file)
+            for i, address in enumerate(primary_addresses):
+                host = Committee.ip(address)
+                cmd = CommandMaker.run_reward_change_monitor(
+                    node_index=i,
+                    repo_name=self.settings.repo_name,
+                    metrics_dir=f'{self.home}/metrics-{i}',
+                    python_bin=CommandMaker.agent_venv_python(),
+                    window_size=reward_change_window_size,
+                    lag=reward_change_lag,
+                    threshold=reward_change_threshold,
+                    confirmations=reward_change_confirmations,
+                    experience_checkpoint_a=(
+                        experience_checkpoint_paths['A']
+                        if experience_checkpoint_paths else None
+                    ),
+                    experience_checkpoint_b=(
+                        experience_checkpoint_paths['B']
+                        if experience_checkpoint_paths else None
+                    ),
+                    experience_pool_size=experience_pool_size,
+                    experience_match_reward_count=experience_match_reward_count,
+                )
+                log_file = join(
+                    PathMaker.logs_path(), f'reward_change_monitor-{i}.log'
+                )
+                self._background_run(host, cmd, log_file)
+        else:
+            Print.info('Reward change monitors disabled; skipping startup.')
 
         # Fix socket permissions to allow metrics_collector to connect.
         Print.info('Fixing socket permissions for metrics collection...')

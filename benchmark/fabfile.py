@@ -43,13 +43,23 @@ def local(ctx, debug=False):
         'enable_rl': True,
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab" or "gp_bo"
+        # RL algorithm: "cmab", "gp_bo", or continuous-timeout "kernel_ucb".
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
         # Maximum training iterations in this run. None = train until experiment ends.
         'rl_max_training_iterations': 200,
 
+        # Continuous KernelUCB parameters (used only when rl_algo="kernel_ucb").
+        'kernel_ucb_alpha': 1.0,
+        'kernel_ucb_regularization': 0.1,
+        'kernel_ucb_length_scale': 1.0,
+        'kernel_ucb_timeout_min': 1.0,
+        'kernel_ucb_timeout_max': 300.0,
+        'kernel_ucb_optimizer_restarts': 5,
+        'kernel_ucb_replay_window': 200,
+
         # Environment-change detector (relative change between reward windows).
+        'enable_reward_change_monitor': True,
         'reward_change_window_size': 8,
         'reward_change_lag': 3,
         'reward_change_threshold': 0.30,
@@ -198,11 +208,13 @@ def remote(ctx, debug=False):
         'enable_rl': True,
         # Set these two values on node0 before each run. Fabric snapshots this
         # file before git reset, then copies it to every controller node.
+        # A checkpoint must match rl_algo; use False for a fresh KernelUCB run.
         'enable_checkpoint': True,
         'checkpoint_path': '/local/checkpoint_library/cmab_A_340.pkl',
         # Legacy mode only: a path that already exists on every remote node.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab" or "gp_bo"
+        # Change only this value to switch the learning algorithm:
+        # "cmab", "gp_bo", or continuous-timeout "kernel_ucb".
         'rl_algo': 'cmab',
         # Let CMAB train normally. Experience matching remains report-only and
         # does not inject A/B checkpoint samples into the active replay bucket.
@@ -210,7 +222,19 @@ def remote(ctx, debug=False):
         # Maximum training iterations in this run. None = train until experiment ends.
         'rl_max_training_iterations': 200,
 
+        # Continuous KernelUCB parameters (used only when rl_algo="kernel_ucb").
+        'kernel_ucb_alpha': 1.0,
+        'kernel_ucb_regularization': 0.1,
+        'kernel_ucb_length_scale': 1.0,
+        'kernel_ucb_timeout_min': 1.0,
+        'kernel_ucb_timeout_max': 300.0,
+        'kernel_ucb_optimizer_restarts': 5,
+        'kernel_ucb_replay_window': 200,
+
         # Environment-change detector (relative change between reward windows).
+        # False skips all reward-change monitor processes and implicitly
+        # disables experience matching, so this is the single master switch.
+        'enable_reward_change_monitor': True,
         'reward_change_window_size': 10,
         'reward_change_lag': 3,
         # Confirm an environment change when the relative reward-window score

@@ -302,12 +302,18 @@ class BenchParameters:
                     'or legacy cmab_resume_from'
                 )
 
-            # RL algorithm: "cmab" (discrete RF-TS) or "gp_bo" (GP-UCB BO).
+            # RL algorithm selected by the experiment configuration.
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
                 rl_algo = 'cmab'
-            if not isinstance(rl_algo, str) or rl_algo.lower() not in ('cmab', 'gp_bo'):
-                raise ConfigError('rl_algo must be "cmab" or "gp_bo"')
+            supported_algorithms = ('cmab', 'gp_bo', 'kernel_ucb')
+            if (
+                not isinstance(rl_algo, str)
+                or rl_algo.lower() not in supported_algorithms
+            ):
+                raise ConfigError(
+                    'rl_algo must be "cmab", "gp_bo", or "kernel_ucb"'
+                )
             self.rl_algo = rl_algo.lower()
 
             # Unified warmup passed to controller/trainer:
@@ -357,6 +363,57 @@ class BenchParameters:
                     raise ConfigError(f'{name} must be a positive integer')
                 return value
 
+            def positive_float(name, default, allow_zero=False):
+                value = json.get(name, default)
+                if isinstance(value, bool):
+                    raise ConfigError(f'{name} must be a finite number')
+                try:
+                    value = float(value)
+                except (TypeError, ValueError) as e:
+                    raise ConfigError(f'{name} must be a finite number') from e
+                lower_bound_valid = value >= 0 if allow_zero else value > 0
+                if not lower_bound_valid or not math.isfinite(value):
+                    qualifier = 'non-negative' if allow_zero else 'positive'
+                    raise ConfigError(f'{name} must be a finite {qualifier} number')
+                return value
+
+            # Continuous-timeout KernelUCB controls. They are parsed for every
+            # run so switching rl_algo in fabfile is the only required action.
+            self.kernel_ucb_alpha = positive_float(
+                'kernel_ucb_alpha', 1.0, allow_zero=True
+            )
+            self.kernel_ucb_regularization = positive_float(
+                'kernel_ucb_regularization', 0.1
+            )
+            self.kernel_ucb_length_scale = positive_float(
+                'kernel_ucb_length_scale', 1.0
+            )
+            self.kernel_ucb_timeout_min = positive_float(
+                'kernel_ucb_timeout_min', 1.0
+            )
+            self.kernel_ucb_timeout_max = positive_float(
+                'kernel_ucb_timeout_max', 300.0
+            )
+            if self.kernel_ucb_timeout_min > self.kernel_ucb_timeout_max:
+                raise ConfigError(
+                    'kernel_ucb_timeout_min cannot exceed kernel_ucb_timeout_max'
+                )
+            self.kernel_ucb_optimizer_restarts = positive_int(
+                'kernel_ucb_optimizer_restarts', 5
+            )
+            self.kernel_ucb_replay_window = positive_int(
+                'kernel_ucb_replay_window', 200
+            )
+
+            enable_reward_change_monitor = json.get(
+                'enable_reward_change_monitor', True
+            )
+            if not isinstance(enable_reward_change_monitor, bool):
+                raise ConfigError(
+                    'enable_reward_change_monitor must be true or false'
+                )
+            self.enable_reward_change_monitor = enable_reward_change_monitor
+
             self.reward_change_window_size = positive_int(
                 'reward_change_window_size', 8
             )
@@ -389,7 +446,12 @@ class BenchParameters:
             )
             if not isinstance(enable_experience_matching, bool):
                 raise ConfigError('enable_experience_matching must be true or false')
-            self.enable_experience_matching = enable_experience_matching
+            # The reward-change monitor is the parent process for experience
+            # matching.  Its master switch therefore disables matching too,
+            # so one fabfile edit is enough for clean algorithm comparisons.
+            self.enable_experience_matching = (
+                enable_experience_matching and self.enable_reward_change_monitor
+            )
 
             def optional_path(name):
                 value = json.get(name, None)

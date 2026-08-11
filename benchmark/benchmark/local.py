@@ -245,6 +245,29 @@ class LocalBench:
                     rl_algo=rl_algo,
                     warmup_iterations=warmup_iterations,
                     max_training_iterations=max_training_iterations,
+                    kernel_ucb_alpha=getattr(
+                        self.bench_parameters, 'kernel_ucb_alpha', 1.0
+                    ),
+                    kernel_ucb_regularization=getattr(
+                        self.bench_parameters, 'kernel_ucb_regularization', 0.1
+                    ),
+                    kernel_ucb_length_scale=getattr(
+                        self.bench_parameters, 'kernel_ucb_length_scale', 1.0
+                    ),
+                    kernel_ucb_timeout_min=getattr(
+                        self.bench_parameters, 'kernel_ucb_timeout_min', 1.0
+                    ),
+                    kernel_ucb_timeout_max=getattr(
+                        self.bench_parameters, 'kernel_ucb_timeout_max', 300.0
+                    ),
+                    kernel_ucb_optimizer_restarts=getattr(
+                        self.bench_parameters,
+                        'kernel_ucb_optimizer_restarts',
+                        5,
+                    ),
+                    kernel_ucb_replay_window=getattr(
+                        self.bench_parameters, 'kernel_ucb_replay_window', 200
+                    ),
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(cmd, log_file)
@@ -269,7 +292,12 @@ class LocalBench:
             sleep(2)
 
             # Environment change detection runs independently of RL training.
-            Print.info('Starting reward change monitors...')
+            enable_reward_change_monitor = getattr(
+                self.bench_parameters, 'enable_reward_change_monitor', True
+            )
+            Print.info(
+                f'Reward change monitors enabled: {enable_reward_change_monitor}'
+            )
             reward_change_window_size = getattr(
                 self.bench_parameters, 'reward_change_window_size', 8
             )
@@ -282,25 +310,31 @@ class LocalBench:
             reward_change_confirmations = getattr(
                 self.bench_parameters, 'reward_change_confirmations', 3
             )
-            Print.info(
-                'Reward change detector: '
-                f'window={reward_change_window_size}, lag={reward_change_lag}, '
-                f'threshold={reward_change_threshold}, '
-                f'confirmations={reward_change_confirmations}'
-            )
-            for i, address in enumerate(primary_addresses):
-                cmd = CommandMaker.run_reward_change_monitor(
-                    node_index=i,
-                    repo_name='autopilot',
-                    metrics_dir=f'{CommandMaker.HOME}/metrics-{i}',
-                    python_bin=agent_python,
-                    window_size=reward_change_window_size,
-                    lag=reward_change_lag,
-                    threshold=reward_change_threshold,
-                    confirmations=reward_change_confirmations,
+            if enable_reward_change_monitor:
+                Print.info('Starting reward change monitors...')
+                Print.info(
+                    'Reward change detector: '
+                    f'window={reward_change_window_size}, lag={reward_change_lag}, '
+                    f'threshold={reward_change_threshold}, '
+                    f'confirmations={reward_change_confirmations}'
                 )
-                log_file = join(PathMaker.logs_path(), f'reward_change_monitor-{i}.log')
-                self._background_run(cmd, log_file)
+                for i, address in enumerate(primary_addresses):
+                    cmd = CommandMaker.run_reward_change_monitor(
+                        node_index=i,
+                        repo_name='autopilot',
+                        metrics_dir=f'{CommandMaker.HOME}/metrics-{i}',
+                        python_bin=agent_python,
+                        window_size=reward_change_window_size,
+                        lag=reward_change_lag,
+                        threshold=reward_change_threshold,
+                        confirmations=reward_change_confirmations,
+                    )
+                    log_file = join(
+                        PathMaker.logs_path(), f'reward_change_monitor-{i}.log'
+                    )
+                    self._background_run(cmd, log_file)
+            else:
+                Print.info('Reward change monitors disabled; skipping startup.')
 
             # Fix socket permissions to allow metrics_collector to connect.
             Print.info('Fixing socket permissions for metrics collection...')

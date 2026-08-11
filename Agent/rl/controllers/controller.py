@@ -105,6 +105,13 @@ class AutopilotController:
         rl_algo: str = "cmab",
         warmup_iterations: int = 5,
         max_training_iterations: Optional[int] = None,
+        kernel_ucb_alpha: float = 1.0,
+        kernel_ucb_regularization: float = 0.1,
+        kernel_ucb_length_scale: float = 1.0,
+        kernel_ucb_timeout_min: float = 1.0,
+        kernel_ucb_timeout_max: float = 300.0,
+        kernel_ucb_optimizer_restarts: int = 5,
+        kernel_ucb_replay_window: int = 200,
     ):
         """
         Initialize controller
@@ -115,7 +122,7 @@ class AutopilotController:
             node_index: node index for logging
             log_dir: log directory
             resume_from: optional policy checkpoint path
-            rl_algo: "cmab" (RF-TS) or "gp_bo" (GP-UCB Bayesian Optimization)
+            rl_algo: "cmab", "gp_bo", or continuous-timeout "kernel_ucb"
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO: collect N cold-start samples before first GP fit.
@@ -132,8 +139,15 @@ class AutopilotController:
         if max_training_iterations is not None and max_training_iterations <= 0:
             raise ValueError("max_training_iterations must be positive or None")
         self.max_training_iterations = max_training_iterations
-        if self.rl_algo not in ("cmab", "gp_bo"):
+        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
+        self.kernel_ucb_alpha = float(kernel_ucb_alpha)
+        self.kernel_ucb_regularization = float(kernel_ucb_regularization)
+        self.kernel_ucb_length_scale = float(kernel_ucb_length_scale)
+        self.kernel_ucb_timeout_min = float(kernel_ucb_timeout_min)
+        self.kernel_ucb_timeout_max = float(kernel_ucb_timeout_max)
+        self.kernel_ucb_optimizer_restarts = int(kernel_ucb_optimizer_restarts)
+        self.kernel_ucb_replay_window = int(kernel_ucb_replay_window)
         # Agent/rl root (parent of controllers/)
         self._rl_root = Path(__file__).resolve().parent.parent
 
@@ -175,12 +189,16 @@ class AutopilotController:
     def _training_script_name(self) -> str:
         if self.rl_algo == "gp_bo":
             return "train_gp_bo.py"
+        if self.rl_algo == "kernel_ucb":
+            return "train_kernel_ucb.py"
         return "train_cmab_continuous.py"
 
     def _checkpoint_dir(self) -> Path:
         home = Path.home()
         if self.rl_algo == "gp_bo":
             return home / "gp_bo_checkpoints"
+        if self.rl_algo == "kernel_ucb":
+            return home / "kernel_ucb_checkpoints"
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
@@ -210,6 +228,18 @@ class AutopilotController:
             if self.max_training_iterations is not None:
                 cmd.extend(
                     ["--num-iterations", str(self.max_training_iterations)]
+                )
+            if self.rl_algo == "kernel_ucb":
+                cmd.extend(
+                    [
+                        "--ucb-alpha", str(self.kernel_ucb_alpha),
+                        "--regularization", str(self.kernel_ucb_regularization),
+                        "--length-scale", str(self.kernel_ucb_length_scale),
+                        "--timeout-min", str(self.kernel_ucb_timeout_min),
+                        "--timeout-max", str(self.kernel_ucb_timeout_max),
+                        "--optimizer-restarts", str(self.kernel_ucb_optimizer_restarts),
+                        "--replay-window", str(self.kernel_ucb_replay_window),
+                    ]
                 )
 
             logger.info(f"Starting continuous training with command: {' '.join(cmd)}")
@@ -323,8 +353,8 @@ def main():
     parser.add_argument('--resume-from', type=str, default=None,
                        help='Resume RL policy from checkpoint path')
     parser.add_argument('--rl-algo', type=str, default='cmab',
-                       choices=['cmab', 'gp_bo'],
-                       help='RL algorithm: cmab (RF-TS) or gp_bo (GP-UCB)')
+                       choices=['cmab', 'gp_bo', 'kernel_ucb'],
+                       help='RL algorithm: cmab, gp_bo, or continuous kernel_ucb')
     parser.add_argument(
         '--warmup-iterations',
         type=int,
@@ -340,6 +370,13 @@ def main():
         default=None,
         help='Maximum iterations in this trainer run; omit to train until stopped',
     )
+    parser.add_argument('--kernel-ucb-alpha', type=float, default=1.0)
+    parser.add_argument('--kernel-ucb-regularization', type=float, default=0.1)
+    parser.add_argument('--kernel-ucb-length-scale', type=float, default=1.0)
+    parser.add_argument('--kernel-ucb-timeout-min', type=float, default=1.0)
+    parser.add_argument('--kernel-ucb-timeout-max', type=float, default=300.0)
+    parser.add_argument('--kernel-ucb-optimizer-restarts', type=int, default=5)
+    parser.add_argument('--kernel-ucb-replay-window', type=int, default=200)
 
     args = parser.parse_args()
 
@@ -371,6 +408,13 @@ def main():
             rl_algo=args.rl_algo,
             warmup_iterations=args.warmup_iterations,
             max_training_iterations=args.max_training_iterations,
+            kernel_ucb_alpha=args.kernel_ucb_alpha,
+            kernel_ucb_regularization=args.kernel_ucb_regularization,
+            kernel_ucb_length_scale=args.kernel_ucb_length_scale,
+            kernel_ucb_timeout_min=args.kernel_ucb_timeout_min,
+            kernel_ucb_timeout_max=args.kernel_ucb_timeout_max,
+            kernel_ucb_optimizer_restarts=args.kernel_ucb_optimizer_restarts,
+            kernel_ucb_replay_window=args.kernel_ucb_replay_window,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:
