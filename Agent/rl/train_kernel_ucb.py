@@ -49,7 +49,10 @@ def main():
         "--warmup-iterations",
         type=int,
         default=5,
-        help="Cold-start samples before first KernelUCB model rebuild",
+        help=(
+            "Cold-start selections before using KernelUCB. "
+            "Also applied after --resume-from (post-resume exploration warmup)."
+        ),
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--metrics-timeout", type=int, default=300)
@@ -93,6 +96,18 @@ def main():
     if args.resume_from:
         policy.load(args.resume_from)
         logger.info("Loaded KernelUCB policy from %s", args.resume_from)
+        # Checkpoint already has enough samples, so min_samples warmup is skipped.
+        # Re-arm explicit cold-start warmup for post-resume exploration.
+        if warmup_iterations > 0:
+            policy.start_warmup(warmup_iterations)
+            logger.info(
+                "Post-resume warmup enabled: %d forced cold-start iteration(s)",
+                warmup_iterations,
+            )
+    elif warmup_iterations > 0:
+        # Fresh run: min_samples_to_fit already covers cold-start until fit;
+        # also arm forced warmup so behavior stays consistent if min_samples is 0.
+        policy.start_warmup(warmup_iterations)
 
     context_builder = ContextBuilder(mode=args.context_mode)
     trainer = CMABTrainer(

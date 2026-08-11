@@ -66,6 +66,9 @@ class KernelUCBPolicy:
         self._y: list[float] = []
         self._is_ready = False
         self._update_count = 0
+        # After resume (or explicit start_warmup), force this many cold-start
+        # selections even if the KernelUCB model is already fitted.
+        self._forced_cold_start_remaining = 0
         self.arm_counts: dict[str, int] = {}
         self._base_counts = {base: 0 for base in self._bases}
         self._recent_decisions: deque = deque(maxlen=self._replay_window)
@@ -255,6 +258,18 @@ class KernelUCBPolicy:
 
         return best_timeout, best_ucb, best_mean, best_std, best_arm
 
+    def start_warmup(self, n: int) -> None:
+        """Force `n` cold-start arm selections (used after checkpoint resume)."""
+        n = max(0, int(n))
+        self._forced_cold_start_remaining = n
+        logger.info(
+            "KernelUCB warmup armed: %d forced cold-start iteration(s) "
+            "(model_ready=%s samples=%d)",
+            n,
+            self._is_ready,
+            len(self._y),
+        )
+
     def _cold_start_arm(self, shared_seed_hex: str | None) -> str:
         counts = [self._base_counts[b] for b in self._bases]
         min_count = min(counts) if counts else 0
@@ -266,14 +281,28 @@ class KernelUCBPolicy:
         timeout = self.mixed_space.denormalize_timeout(u)
         chosen = self.mixed_space.make_arm(base, timeout)
         logger.info(
-            "KernelUCB cold start: base=%s timeout=%.1f arm=%s",
+            "KernelUCB cold start: base=%s timeout=%.1f arm=%s "
+            "(forced_remaining=%d samples=%d ready=%s)",
             base,
             timeout,
             chosen,
+            self._forced_cold_start_remaining,
+            len(self._y),
+            self._is_ready,
         )
         return chosen
 
     def select_arm(self, context, shared_seed_hex: str | None = None):
+        # Post-resume / explicit warmup: explore even if model is already fitted.
+        if self._forced_cold_start_remaining > 0:
+            self._forced_cold_start_remaining -= 1
+            logger.info(
+                "KernelUCB warmup select: forced cold-start "
+                "(%d remaining after this pick)",
+                self._forced_cold_start_remaining,
+            )
+            return self._cold_start_arm(shared_seed_hex)
+
         if not self._is_ready or len(self._y) < self._min_samples_to_fit:
             return self._cold_start_arm(shared_seed_hex)
 
@@ -417,6 +446,7 @@ class KernelUCBPolicy:
                 "length_scale": self.length_scale,
                 "signal_var": self.signal_var,
                 "n_restarts": self._n_restarts,
+                "forced_cold_start_remaining": self._forced_cold_start_remaining,
             },
             path,
         )
@@ -446,6 +476,8 @@ class KernelUCBPolicy:
             self.signal_var = float(data["signal_var"])
         if "n_restarts" in data:
             self._n_restarts = int(data["n_restarts"])
+        # Warmup after resume is re-armed by train_kernel_ucb via start_warmup().
+        self._forced_cold_start_remaining = 0
         if len(self._y) >= self._min_samples_to_fit and self._X:
             try:
                 self._rebuild_model()
@@ -454,3 +486,9 @@ class KernelUCBPolicy:
                 logger.warning("KernelUCB rebuild on load failed: %s", e)
         else:
             self._is_ready = bool(data.get("is_ready", False))
+        logger.info(
+            "KernelUCB loaded: samples=%d ready=%s forced_warmup_remaining=%d",
+            len(self._y),
+            self._is_ready,
+            self._forced_cold_start_remaining,
+        )
