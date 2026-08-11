@@ -41,7 +41,7 @@ def local(ctx, debug=False):
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab" or "gp_bo"
+        # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
 

@@ -49,14 +49,28 @@ def parse_archive(path: Path) -> dict | None:
     }
 
 
-def aggregate(rows: list[dict]) -> list[dict]:
+def _keep_closest_to_median(trials: list[dict], keep: int, key: str = "e2e_latency_ms") -> list[dict]:
+    """Drop outliers by keeping the `keep` trials closest to the median of `key`."""
+    if keep <= 0 or len(trials) <= keep:
+        return list(trials)
+    vals = [t[key] for t in trials]
+    med = statistics.median(vals)
+    ranked = sorted(trials, key=lambda t: (abs(t[key] - med), t[key], t["file"]))
+    kept = ranked[:keep]
+    # Stable order by filename for reproducible CSV "files" field.
+    return sorted(kept, key=lambda t: t["file"])
+
+
+def aggregate(rows: list[dict], keep_trials: int = 2) -> list[dict]:
     by_timeout: dict[int, list[dict]] = defaultdict(list)
     for row in rows:
         by_timeout[row["timeout_ms"]].append(row)
 
     summary = []
     for timeout in sorted(by_timeout):
-        trials = by_timeout[timeout]
+        all_trials = by_timeout[timeout]
+        trials = _keep_closest_to_median(all_trials, keep_trials)
+        dropped = [t["file"] for t in all_trials if t not in trials]
 
         def mean_err(vals: list[float]) -> tuple[float, float]:
             mean = statistics.mean(vals)
@@ -88,7 +102,9 @@ def aggregate(rows: list[dict]) -> list[dict]:
             {
                 "timeout_ms": timeout,
                 "n_trials": len(trials),
+                "n_trials_raw": len(all_trials),
                 "files": ",".join(t["file"] for t in trials),
+                "dropped_files": ",".join(dropped),
                 "e2e_latency_mean_ms": e2e_mean,
                 "e2e_latency_err_ms": e2e_err,
                 "consensus_latency_mean_ms": cons_mean,
@@ -105,7 +121,9 @@ def write_csv(summary: list[dict], path: Path) -> None:
     fields = [
         "timeout_ms",
         "n_trials",
+        "n_trials_raw",
         "files",
+        "dropped_files",
         "e2e_latency_mean_ms",
         "e2e_latency_err_ms",
         "consensus_latency_mean_ms",
@@ -157,9 +175,10 @@ def plot_curve(summary: list[dict], out_path: Path) -> None:
     )
     ax.set_xlabel("Fast path timeout (ms)")
     ax.set_ylabel("Latency (ms)")
-    ax.set_title("Fast path timeout vs latency (mean of all trials, 120s runs)")
+    ax.set_title("Fast path timeout vs latency")
     ax.set_xticks(xs)
-    ax.grid(True, alpha=0.3)
+    ax.grid(True, alpha=0.5)
+    ax.set_ylim(0, 1000)
 
     if has_ratio:
         ax2 = ax.twinx()
@@ -171,14 +190,14 @@ def plot_curve(summary: list[dict], out_path: Path) -> None:
             linewidth=1.5,
             linestyle=":",
             capsize=3,
-            label="Avg fast_path_ratio (all metrics JSON)",
+            label="Avg fast_path_ratio",
             color="#2e7d32",
         )
         ax2.set_ylabel("Avg fast_path_ratio")
         ax2.set_ylim(0, 1.05)
         lines1, labels1 = ax.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
-        ax.legend(lines1 + lines2, labels1 + labels2, loc="best")
+        ax.legend(lines1 + lines2, labels1 + labels2, loc="lower right")
     else:
         ax.legend()
 
@@ -204,6 +223,15 @@ def main() -> int:
         default=str(_script_dir() / "results" / "fpt_sweep_120s" / "summary.csv"),
         help="Output summary CSV path",
     )
+    parser.add_argument(
+        "--keep-trials",
+        type=int,
+        default=3,
+        help=(
+            "Per timeout, keep this many trials closest to the E2E-latency median "
+            "(drop the rest as outliers), then average. Use 0 to keep all."
+        ),
+    )
     args = parser.parse_args()
 
     archive_dir = Path(args.archive_dir)
@@ -224,7 +252,7 @@ def main() -> int:
         print("No parseable trial archives")
         return 1
 
-    summary = aggregate(rows)
+    summary = aggregate(rows, keep_trials=args.keep_trials)
     csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     write_csv(summary, csv_path)
@@ -234,13 +262,18 @@ def main() -> int:
 
     print(f"Wrote {csv_path}")
     print(f"Wrote {out_path}")
-    print("timeout_ms  e2e_mean±err  consensus_mean±err  n")
+    print(
+        f"Aggregation: keep_trials={args.keep_trials} "
+        f"(0 means keep all; else keep closest-to-median by E2E)"
+    )
+    print("timeout_ms  e2e_mean±err  consensus_mean±err  n(kept/raw)  dropped")
     for r in summary:
+        dropped = r.get("dropped_files") or "-"
         print(
             f"{r['timeout_ms']:>5}      "
             f"{r['e2e_latency_mean_ms']:.0f}±{r['e2e_latency_err_ms']:.0f}        "
             f"{r['consensus_latency_mean_ms']:.0f}±{r['consensus_latency_err_ms']:.0f}             "
-            f"{r['n_trials']}"
+            f"{r['n_trials']}/{r['n_trials_raw']}  {dropped}"
         )
 
     best = min(summary, key=lambda r: r["e2e_latency_mean_ms"])
