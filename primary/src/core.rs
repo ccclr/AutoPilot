@@ -193,6 +193,9 @@ pub struct Core {
     last_used_k: u64, // Previous k value used before latest in-epoch parameter application.
     // When k is reduced, keep old k for in-flight slots up to this boundary.
     k_transition_end_slot: Option<u64>,
+    // Safer k-decrease: target k while draining in-flight instances opened under the old k.
+    // While set, new slots open with pending_k; self.k stays at the old value until activation.
+    pending_k: Option<u64>,
     fast_path_timeout: u64,
 
     use_ride_share: bool,
@@ -484,6 +487,7 @@ impl Core {
                 k,
                 last_used_k: k,
                 k_transition_end_slot: None,
+                pending_k: None,
                 fast_path_timeout,
                 use_ride_share,
                 car_timeout,
@@ -1942,37 +1946,39 @@ impl Core {
                         if !self.use_parallel_proposals {
                             panic!("Parallel proposals should be true");
                         }
-                        let ticket_k = qc_ticket
-                            .as_ref()
-                            .map(|commit_qc| self.effective_k_for_qc_slot(commit_qc.slot))
-                            .unwrap_or(self.k);
-                        //Check if QC_ticket valid:
-                        if *slot > ticket_k {
-                            debug!("Checking QC Ticket");
-                            if !self.committed_slots.contains_key(&(slot - ticket_k)) {
-                                //If we have it locally don't need to verify
-                                debug!("Verify QC Ticket");
-                                //Process CommitMessage
-                                let Some(commit_qc) = qc_ticket.as_ref() else {
+                        // Ticket distance is taken from the message itself so in-flight
+                        // prepares opened under old k remain valid while pending_k drains.
+                        let max_ticket_k = self.max_allowed_ticket_k();
+                        match qc_ticket.as_ref() {
+                            Some(commit_qc) => {
+                                let implied_k = slot.saturating_sub(commit_qc.slot);
+                                debug!(
+                                    "Checking QC Ticket: prepare_slot={}, qc_slot={}, implied_k={}, max_k={}",
+                                    slot, commit_qc.slot, implied_k, max_ticket_k
+                                );
+                                if implied_k == 0 || implied_k > max_ticket_k {
                                     debug!(
-                                        "Missing qc_ticket for Prepare slot {} requiring ticket with k={}",
-                                        slot, ticket_k
-                                    );
-                                    return false;
-                                };
-                                let commit_message = transform_commitQC(commit_qc.clone());
-                                if commit_qc.slot + ticket_k != *slot {
-                                    debug!(
-                                        "QC Ticket slot mismatch: qc_slot={} + k={} != prepare_slot={}",
-                                        commit_qc.slot, ticket_k, slot
+                                        "QC Ticket slot mismatch: qc_slot={} + implied_k={} != prepare_slot={} (max_k={})",
+                                        commit_qc.slot, implied_k, slot, max_ticket_k
                                     );
                                     return false;
                                 }
-                                ticket_valid = self.is_valid(&commit_message).await;
-                                debug!("Verify QC Ticket: {}", ticket_valid);
-                                //self.process_commit_message(commit_message, &Header::default()).await.expect("QC Ticket valid"); //TODO: process if unseen..
+                                if !self.committed_slots.contains_key(&commit_qc.slot) {
+                                    debug!("Verify QC Ticket");
+                                    let commit_message = transform_commitQC(commit_qc.clone());
+                                    ticket_valid = self.is_valid(&commit_message).await;
+                                    debug!("Verify QC Ticket: {}", ticket_valid);
+                                }
                             }
-                            //if locally committed, do nothing.
+                            None => {
+                                if *slot > max_ticket_k {
+                                    debug!(
+                                        "Missing qc_ticket for Prepare slot {} requiring ticket with max_k={}",
+                                        slot, max_ticket_k
+                                    );
+                                    return false;
+                                }
+                            }
                         }
                         ticket_valid = ticket_valid && *view == 1;
                     }
@@ -2688,6 +2694,8 @@ impl Core {
                         self.k_transition_end_slot = None;
                     }
                 }
+                // Drain-based pending k activation (safer than fixed transition_end).
+                self.try_activate_pending_k();
                 let first_commit_observation = self
                     .committed_slots
                     .insert(
@@ -3181,7 +3189,26 @@ impl Core {
 
         //println!("Processed our own timeout");
         // Process our message.
-        self.handle_timeout(&timeout).await
+        self.handle_timeout(&timeout).await?;
+
+        // Liveness: Timeout futures are single-shot. If a TC was not assembled, the
+        // slot would otherwise stall forever with no further timer. Re-arm until we
+        // either commit or advance the view via TC.
+        if !self.committed_slots.contains_key(&slot) {
+            let curr_view = self.views.get(&slot).copied().unwrap_or(0);
+            if curr_view <= view {
+                let duration = self.calculate_timeout(slot, view);
+                self.timer_futures
+                    .push(Box::pin(Timer::new(slot, view, duration)));
+                self.timers.insert((slot, view));
+                debug!(
+                    "Re-armed timeout for slot {}, view {} (duration={}ms)",
+                    slot, view, duration
+                );
+            }
+        }
+
+        Ok(())
     }
 
     async fn handle_timeout(&mut self, timeout: &Timeout) -> DagResult<()> {
@@ -3928,35 +3955,37 @@ impl Core {
             }
         }
         if let Some(k) = json_value.get("k").and_then(|v| v.as_u64()) {
-            if self.k != k {
+            if self.k != k || self.pending_k.map(|pk| pk != k).unwrap_or(false) {
                 let previous_k = self.k;
-                info!("✅ Updated k (parallel_proposals): {} -> {}", previous_k, k);
-                self.last_used_k = previous_k;
-                self.k = k;
                 if k < previous_k {
-                    let epoch_to_record = self.epoch_index_for_slot(self.last_committed_slot);
-                    let transition_end =
-                        match (self.epoch_start_slot(epoch_to_record), self.applied_begin) {
-                            (Some(epoch_start), begin) if begin > 0 => {
-                                // Keep old k for the applied_begin-triggered in-flight window:
-                                // [applied_begin_slot, applied_begin_slot + old_k].
-                                let applied_begin_slot =
-                                    epoch_start.saturating_add(begin.saturating_sub(1));
-                                applied_begin_slot.saturating_add(previous_k)
-                            }
-                            _ => self.last_committed_slot.saturating_add(previous_k),
-                        };
-                    self.k_transition_end_slot = Some(transition_end);
+                    // Safer decrease: keep self.k at the old value for in-flight ticket
+                    // validation, but restrict NEW opens to pending_k immediately.
+                    // Activate self.k = pending_k only once open instances <= pending_k.
+                    self.pending_k = Some(k);
+                    self.k_transition_end_slot = None;
                     info!(
-                        "🛡️  k decreased; keeping old k={} for transition window up to slot {}",
-                        previous_k, transition_end
+                        "🛡️  k decrease pending: {} -> {} (open_slots={}); restricting new opens immediately",
+                        previous_k,
+                        k,
+                        self.open_instance_count()
                     );
+                    self.try_activate_pending_k();
                 } else {
+                    // Increase (or replace a pending decrease with a larger target): apply now.
+                    if let Some(pk) = self.pending_k.take() {
+                        info!(
+                            "⏩ Clearing pending k={} because new target k={} is not a decrease",
+                            pk, k
+                        );
+                    }
+                    info!("✅ Updated k (parallel_proposals): {} -> {}", previous_k, k);
+                    self.last_used_k = previous_k;
+                    self.k = k;
                     self.k_transition_end_slot = None;
                 }
                 info!(
-                    "ℹ️  k transition state: last_used_k={}, active_k={}, transition_end={:?}",
-                    self.last_used_k, self.k, self.k_transition_end_slot
+                    "ℹ️  k transition state: last_used_k={}, active_k={}, pending_k={:?}, transition_end={:?}",
+                    self.last_used_k, self.k, self.pending_k, self.k_transition_end_slot
                 );
                 parameters_updated = true;
             }
@@ -4213,14 +4242,73 @@ impl Core {
         }
     }
 
+    fn slot_already_started(&self, slot: Slot) -> bool {
+        self.already_proposed_slots.contains(&slot)
+            || self.committed_slots.contains_key(&slot)
+            || self.views.contains_key(&slot)
+            || self.timers.iter().any(|(s, _)| *s == slot)
+    }
+
+    fn open_instance_count(&self) -> u64 {
+        self.already_proposed_slots
+            .iter()
+            .filter(|slot| **slot > 0 && !self.committed_slots.contains_key(slot))
+            .count() as u64
+    }
+
+    fn max_allowed_ticket_k(&self) -> u64 {
+        // During pending decrease, self.k remains the old (larger) value so in-flight
+        // tickets with the old distance remain acceptable.
+        self.k
+            .max(self.last_used_k)
+            .max(self.pending_k.unwrap_or(0))
+            .max(1)
+    }
+
+    fn try_activate_pending_k(&mut self) {
+        let Some(pending) = self.pending_k else {
+            return;
+        };
+        let open = self.open_instance_count();
+        if open > pending {
+            debug!(
+                "⏳ Pending k={} not ready yet (open_slots={})",
+                pending, open
+            );
+            return;
+        }
+        let previous = self.k;
+        self.last_used_k = previous;
+        self.k = pending;
+        self.pending_k = None;
+        self.k_transition_end_slot = None;
+        info!(
+            "✅ Activated pending k decrease: {} -> {} (open_slots={})",
+            previous, pending, open
+        );
+    }
+
     fn effective_k_for_prepare_slot(&self, prepare_slot: u64) -> u64 {
+        // While a decrease is pending, newly opened slots must use the target (smaller) k
+        // immediately; already-started slots keep the old k for ticket distance checks.
+        if let Some(pending) = self.pending_k {
+            if self.slot_already_started(prepare_slot) {
+                return self.k.max(1);
+            }
+            return pending.max(1);
+        }
         let base_k = self.base_k_for_slot(prepare_slot);
-        self.k_with_transition_guard(prepare_slot, base_k)
+        self.k_with_transition_guard(prepare_slot, base_k).max(1)
     }
 
     fn effective_k_for_qc_slot(&self, qc_slot: u64) -> u64 {
+        // Prefer implied ticket distance in validation paths. This helper remains for
+        // callers that still estimate k from a QC slot during/after transitions.
+        if self.pending_k.is_some() {
+            return self.k.max(1);
+        }
         let base_k = self.base_k_for_slot(qc_slot);
-        self.k_with_transition_guard(qc_slot, base_k)
+        self.k_with_transition_guard(qc_slot, base_k).max(1)
     }
 
     async fn handle_metrics_state_message(&mut self, message: String) -> DagResult<()> {
