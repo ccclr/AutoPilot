@@ -1,5 +1,5 @@
 from fabric import Connection
-from latency_config import NODES
+from autopilot.simulate_latency.latency_config import NODES
 
 
 USER = "AlanXiao"

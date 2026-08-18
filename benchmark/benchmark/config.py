@@ -253,6 +253,13 @@ class BenchParameters:
 
             self.runs = int(json['runs']) if 'runs' in json else 1
 
+            new_result_file_per_run = json.get(
+                'new_result_file_per_run', False
+            )
+            if not isinstance(new_result_file_per_run, bool):
+                raise ConfigError('new_result_file_per_run must be true or false')
+            self.new_result_file_per_run = new_result_file_per_run
+
             # Experiment-level RL switch. Metrics collection and change
             # detection are independent and continue running when disabled.
             enable_rl = json.get('enable_rl', True)
@@ -306,13 +313,13 @@ class BenchParameters:
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
                 rl_algo = 'cmab'
-            supported_algorithms = ('cmab', 'gp_bo', 'kernel_ucb')
+            supported_algorithms = ('cmab', 'gp_bo', 'kernel_ucb', 'dqn')
             if (
                 not isinstance(rl_algo, str)
                 or rl_algo.lower() not in supported_algorithms
             ):
                 raise ConfigError(
-                    'rl_algo must be "cmab", "gp_bo", or "kernel_ucb"'
+                    'rl_algo must be "cmab", "gp_bo", "kernel_ucb", or "dqn"'
                 )
             self.rl_algo = rl_algo.lower()
 
@@ -377,6 +384,20 @@ class BenchParameters:
                     raise ConfigError(f'{name} must be a finite {qualifier} number')
                 return value
 
+            def non_negative_int(name, default):
+                value = json.get(name, default)
+                if isinstance(value, bool):
+                    raise ConfigError(f'{name} must be a non-negative integer')
+                try:
+                    value = int(value)
+                except (TypeError, ValueError) as e:
+                    raise ConfigError(
+                        f'{name} must be a non-negative integer'
+                    ) from e
+                if value < 0:
+                    raise ConfigError(f'{name} must be a non-negative integer')
+                return value
+
             # Continuous-timeout KernelUCB controls. They are parsed for every
             # run so switching rl_algo in fabfile is the only required action.
             self.kernel_ucb_alpha = positive_float(
@@ -404,6 +425,62 @@ class BenchParameters:
             self.kernel_ucb_replay_window = positive_int(
                 'kernel_ucb_replay_window', 200
             )
+
+            # Centralized node0 DQN controls.  Only node0 owns the neural
+            # network/replay buffer; every primary runs a TCP action receiver.
+            self.dqn_training_node = non_negative_int('dqn_training_node', 0)
+            if self.dqn_training_node != 0:
+                raise ConfigError('centralized DQN currently requires dqn_training_node=0')
+            self.dqn_action_port = positive_int('dqn_action_port', 19100)
+            if self.dqn_action_port > 65535:
+                raise ConfigError('dqn_action_port must be <= 65535')
+            self.dqn_action_timeout = positive_float('dqn_action_timeout', 2.0)
+            self.dqn_action_retries = non_negative_int('dqn_action_retries', 2)
+            self.dqn_learning_rate = positive_float('dqn_learning_rate', 1e-3)
+            self.dqn_gamma = positive_float(
+                'dqn_gamma', 0.90, allow_zero=True
+            )
+            if self.dqn_gamma > 1:
+                raise ConfigError('dqn_gamma must be between 0 and 1')
+            self.dqn_replay_capacity = positive_int(
+                'dqn_replay_capacity', 2000
+            )
+            self.dqn_batch_size = positive_int('dqn_batch_size', 32)
+            self.dqn_learning_starts = positive_int('dqn_learning_starts', 32)
+            if self.dqn_replay_capacity < self.dqn_batch_size:
+                raise ConfigError(
+                    'dqn_replay_capacity must be at least dqn_batch_size'
+                )
+            if self.dqn_learning_starts < self.dqn_batch_size:
+                raise ConfigError(
+                    'dqn_learning_starts must be at least dqn_batch_size'
+                )
+            self.dqn_target_update_interval = positive_int(
+                'dqn_target_update_interval', 20
+            )
+            self.dqn_epsilon_start = positive_float(
+                'dqn_epsilon_start', 1.0, allow_zero=True
+            )
+            self.dqn_epsilon_end = positive_float(
+                'dqn_epsilon_end', 0.05, allow_zero=True
+            )
+            if not (
+                0 <= self.dqn_epsilon_end <= self.dqn_epsilon_start <= 1
+            ):
+                raise ConfigError(
+                    'DQN epsilon values must satisfy 0 <= end <= start <= 1'
+                )
+            self.dqn_epsilon_decay_steps = positive_int(
+                'dqn_epsilon_decay_steps', 200
+            )
+            self.dqn_gradient_updates = positive_int(
+                'dqn_gradient_updates', 1
+            )
+            self.dqn_gradient_clip = positive_float(
+                'dqn_gradient_clip', 10.0
+            )
+            self.dqn_hidden_dim = positive_int('dqn_hidden_dim', 64)
+            self.dqn_seed = non_negative_int('dqn_seed', 0)
 
             enable_reward_change_monitor = json.get(
                 'enable_reward_change_monitor', True

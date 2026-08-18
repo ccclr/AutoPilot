@@ -14,6 +14,7 @@ from time import sleep, time
 from math import ceil
 from copy import deepcopy
 import subprocess
+from datetime import datetime
 
 from benchmark.config import Committee, Key, NodeParameters, BenchParameters, ConfigError
 from benchmark.utils import BenchError, Print, PathMaker, progress_bar
@@ -253,7 +254,7 @@ class CloudLabBench:
                 digest.update(chunk)
         return digest.hexdigest()
 
-    def _stage_checkpoint_on_node0(self, checkpoint_path):
+    def _stage_checkpoint_on_node0(self, checkpoint_path, rl_algo='cmab'):
         """Snapshot the source before remote git updates can modify node0."""
         source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
         if not os.path.isfile(source_path):
@@ -265,8 +266,12 @@ class CloudLabBench:
             )
 
         source_sha256 = self._sha256_file(source_path)
-        stage_dir = f'{self.home}/cmab_checkpoint_sources'
-        stage_path = f'{stage_dir}/current.pkl'
+        is_dqn = str(rl_algo).lower() == 'dqn'
+        stage_dir = (
+            f'{self.home}/dqn_checkpoint_sources'
+            if is_dqn else f'{self.home}/cmab_checkpoint_sources'
+        )
+        stage_path = f'{stage_dir}/current.{"pt" if is_dqn else "pkl"}'
         temporary_path = (
             f'{stage_path}.stage-{os.getpid()}-{source_sha256[:12]}'
         )
@@ -328,8 +333,10 @@ class CloudLabBench:
         )
         return stage_path
 
-    def _distribute_checkpoint(self, checkpoint_path, primary_addresses):
-        """Copy one node0-local checkpoint to every controller node."""
+    def _distribute_checkpoint(
+        self, checkpoint_path, primary_addresses, rl_algo='cmab'
+    ):
+        """Copy a checkpoint to the nodes that actually run a controller."""
         source_path = os.path.abspath(os.path.expanduser(checkpoint_path))
         if not os.path.isfile(source_path):
             raise BenchError(
@@ -341,8 +348,12 @@ class CloudLabBench:
 
         source_size = os.path.getsize(source_path)
         source_sha256 = self._sha256_file(source_path)
-        remote_dir = f'{self.home}/cmab_checkpoints'
-        remote_path = f'{remote_dir}/current.pkl'
+        is_dqn = str(rl_algo).lower() == 'dqn'
+        remote_dir = (
+            f'{self.home}/dqn_resume_checkpoints'
+            if is_dqn else f'{self.home}/cmab_checkpoints'
+        )
+        remote_path = f'{remote_dir}/current.{"pt" if is_dqn else "pkl"}'
         controller_hosts = list(dict.fromkeys(
             Committee.ip(address) for address in primary_addresses
         ))
@@ -798,6 +809,7 @@ class CloudLabBench:
         Print.info(f'RL controllers enabled: {enable_rl}')
         if enable_rl:
             Print.info('Starting RL controllers...')
+            rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
             enable_checkpoint = getattr(
                 bench_parameters,
                 'enable_checkpoint',
@@ -806,14 +818,19 @@ class CloudLabBench:
             checkpoint_path = getattr(bench_parameters, 'checkpoint_path', None)
             resume_from = None
             if enable_checkpoint and checkpoint_path:
+                checkpoint_targets = (
+                    primary_addresses[:1]
+                    if rl_algo == 'dqn' else primary_addresses
+                )
                 resume_from = self._distribute_checkpoint(
-                    checkpoint_path, primary_addresses
+                    checkpoint_path,
+                    checkpoint_targets,
+                    rl_algo=rl_algo,
                 )
             elif enable_checkpoint:
                 # Backward compatibility: this path must already exist on
                 # every controller node and is not copied by Fabric.
                 resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
-            rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
             warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
             max_training_iterations = getattr(
                 bench_parameters, 'rl_max_training_iterations', 200
@@ -839,6 +856,17 @@ class CloudLabBench:
             kernel_ucb_replay_window = getattr(
                 bench_parameters, 'kernel_ucb_replay_window', 200
             )
+            dqn_action_port = getattr(bench_parameters, 'dqn_action_port', 19100)
+            dqn_action_timeout = getattr(
+                bench_parameters, 'dqn_action_timeout', 2.0
+            )
+            dqn_action_retries = getattr(
+                bench_parameters, 'dqn_action_retries', 2
+            )
+            dqn_endpoints = ','.join(
+                f'{i}@{Committee.ip(address)}:{dqn_action_port}'
+                for i, address in enumerate(primary_addresses)
+            )
             Print.info(f'RL algo: {rl_algo}')
             Print.info(f'RL warmup iterations: {warmup_iterations}')
             Print.info(
@@ -857,9 +885,54 @@ class CloudLabBench:
                     f'optimizer_restarts={kernel_ucb_optimizer_restarts}, '
                     f'replay={kernel_ucb_replay_window}'
                 )
+            if rl_algo == 'dqn':
+                Print.info('DQN training node: node0 (centralized)')
+                Print.info(
+                    'DQN: '
+                    f'lr={bench_parameters.dqn_learning_rate}, '
+                    f'gamma={bench_parameters.dqn_gamma}, '
+                    f'replay={bench_parameters.dqn_replay_capacity}, '
+                    f'batch={bench_parameters.dqn_batch_size}, '
+                    f'learning_starts={bench_parameters.dqn_learning_starts}, '
+                    f'target_update={bench_parameters.dqn_target_update_interval}, '
+                    f'epsilon={bench_parameters.dqn_epsilon_start}'
+                    f'->{bench_parameters.dqn_epsilon_end} over '
+                    f'{bench_parameters.dqn_epsilon_decay_steps} decisions, '
+                    f'gradient_updates={bench_parameters.dqn_gradient_updates}, '
+                    f'action_port={dqn_action_port}'
+                )
+                Print.info(f'DQN action endpoints: {dqn_endpoints}')
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
-            for i, address in enumerate(primary_addresses):
+
+            if rl_algo == 'dqn':
+                Print.info('Starting DQN action receivers on all primaries...')
+                receiver_addresses = []
+                for i, address in enumerate(primary_addresses):
+                    host = Committee.ip(address)
+                    cmd = CommandMaker.run_action_receiver(
+                        node_index=i,
+                        repo_name=self.settings.repo_name,
+                        parameters_file=f'{self.home}/.parameters.json',
+                        python_bin=CommandMaker.agent_venv_python(),
+                        port=dqn_action_port,
+                    )
+                    log_file = join(
+                        PathMaker.logs_path(), f'action_receiver-{i}.log'
+                    )
+                    self._background_run(host, cmd, log_file)
+                    receiver_addresses.append(f'{host}:{dqn_action_port}')
+                self._wait_for_tcp_listeners(
+                    receiver_addresses,
+                    timeout_sec=30,
+                    label='DQN action receivers',
+                )
+                Print.info('All DQN action receivers are ready.')
+
+            controller_addresses = (
+                primary_addresses[:1] if rl_algo == 'dqn' else primary_addresses
+            )
+            for i, address in enumerate(controller_addresses):
                 host = Committee.ip(address)
                 cmd = CommandMaker.run_controller(
                     node_index=i,
@@ -880,6 +953,46 @@ class CloudLabBench:
                         kernel_ucb_optimizer_restarts
                     ),
                     kernel_ucb_replay_window=kernel_ucb_replay_window,
+                    dqn_action_endpoints=(
+                        dqn_endpoints if rl_algo == 'dqn' else None
+                    ),
+                    dqn_action_timeout=dqn_action_timeout,
+                    dqn_action_retries=dqn_action_retries,
+                    dqn_learning_rate=getattr(
+                        bench_parameters, 'dqn_learning_rate', 1e-3
+                    ),
+                    dqn_gamma=getattr(bench_parameters, 'dqn_gamma', 0.90),
+                    dqn_replay_capacity=getattr(
+                        bench_parameters, 'dqn_replay_capacity', 2000
+                    ),
+                    dqn_batch_size=getattr(
+                        bench_parameters, 'dqn_batch_size', 32
+                    ),
+                    dqn_learning_starts=getattr(
+                        bench_parameters, 'dqn_learning_starts', 32
+                    ),
+                    dqn_target_update_interval=getattr(
+                        bench_parameters, 'dqn_target_update_interval', 20
+                    ),
+                    dqn_epsilon_start=getattr(
+                        bench_parameters, 'dqn_epsilon_start', 1.0
+                    ),
+                    dqn_epsilon_end=getattr(
+                        bench_parameters, 'dqn_epsilon_end', 0.05
+                    ),
+                    dqn_epsilon_decay_steps=getattr(
+                        bench_parameters, 'dqn_epsilon_decay_steps', 200
+                    ),
+                    dqn_gradient_updates=getattr(
+                        bench_parameters, 'dqn_gradient_updates', 1
+                    ),
+                    dqn_gradient_clip=getattr(
+                        bench_parameters, 'dqn_gradient_clip', 10.0
+                    ),
+                    dqn_hidden_dim=getattr(
+                        bench_parameters, 'dqn_hidden_dim', 64
+                    ),
+                    dqn_seed=getattr(bench_parameters, 'dqn_seed', 0),
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(host, cmd, log_file)
@@ -1095,6 +1208,10 @@ class CloudLabBench:
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
 
+        # One id identifies this invocation of `fab remote`. The inner run
+        # number keeps files distinct when bench_parameters.runs > 1.
+        result_run_id = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+
         # Capture the user-selected file before `_update` runs git reset on
         # CloudLab hosts. This matters when node0 is also an experiment node.
         if (
@@ -1103,7 +1220,8 @@ class CloudLabBench:
             and bench_parameters.checkpoint_path
         ):
             bench_parameters.checkpoint_path = self._stage_checkpoint_on_node0(
-                bench_parameters.checkpoint_path
+                bench_parameters.checkpoint_path,
+                bench_parameters.rl_algo,
             )
 
         if bench_parameters.enable_experience_matching:
@@ -1283,20 +1401,29 @@ class CloudLabBench:
 
                         faults = bench_parameters.faults
                         logger = self._logs(committee_copy, faults)
+                        result_id = None
+                        result_mode = 'a'
+                        if bench_parameters.new_result_file_per_run:
+                            result_id = f'{result_run_id}-run{i + 1}'
+                            # Exclusive creation prevents accidental overwrite
+                            # if a result identifier ever collides.
+                            result_mode = 'x'
                         result_file = PathMaker.result_file(
                             faults,
                             n, 
                             bench_parameters.workers,
                             bench_parameters.collocate,
                             r, 
-                            bench_parameters.tx_size, 
+                            bench_parameters.tx_size,
+                            result_id=result_id,
                         )
                         result_config = {}
                         result_config.update(node_parameters.json)
                         result_config.update(node_parameters_dict)
                         result_config.update(bench_parameters_dict)
-                        with open(result_file, 'a') as f:
+                        with open(result_file, result_mode) as f:
                             f.write(logger.result(extra_config=result_config))
+                        Print.info(f'Benchmark result written to {result_file}')
                     except (subprocess.SubprocessError, GroupException, ParseError) as e:
                         self.kill(hosts=selected_hosts)
                         if isinstance(e, GroupException):

@@ -112,6 +112,22 @@ class AutopilotController:
         kernel_ucb_timeout_max: float = 300.0,
         kernel_ucb_optimizer_restarts: int = 5,
         kernel_ucb_replay_window: int = 200,
+        dqn_action_endpoints: Optional[str] = None,
+        dqn_action_timeout: float = 2.0,
+        dqn_action_retries: int = 2,
+        dqn_learning_rate: float = 1e-3,
+        dqn_gamma: float = 0.90,
+        dqn_replay_capacity: int = 2000,
+        dqn_batch_size: int = 32,
+        dqn_learning_starts: int = 32,
+        dqn_target_update_interval: int = 20,
+        dqn_epsilon_start: float = 1.0,
+        dqn_epsilon_end: float = 0.05,
+        dqn_epsilon_decay_steps: int = 200,
+        dqn_gradient_updates: int = 1,
+        dqn_gradient_clip: float = 10.0,
+        dqn_hidden_dim: int = 64,
+        dqn_seed: int = 0,
     ):
         """
         Initialize controller
@@ -122,7 +138,8 @@ class AutopilotController:
             node_index: node index for logging
             log_dir: log directory
             resume_from: optional policy checkpoint path
-            rl_algo: "cmab", "gp_bo", or continuous-timeout "kernel_ucb"
+            rl_algo: "cmab", "gp_bo", continuous-timeout "kernel_ucb", or
+                centralized node0 "dqn"
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO: collect N cold-start samples before first GP fit.
@@ -139,7 +156,7 @@ class AutopilotController:
         if max_training_iterations is not None and max_training_iterations <= 0:
             raise ValueError("max_training_iterations must be positive or None")
         self.max_training_iterations = max_training_iterations
-        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb"):
+        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb", "dqn"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         self.kernel_ucb_alpha = float(kernel_ucb_alpha)
         self.kernel_ucb_regularization = float(kernel_ucb_regularization)
@@ -148,6 +165,27 @@ class AutopilotController:
         self.kernel_ucb_timeout_max = float(kernel_ucb_timeout_max)
         self.kernel_ucb_optimizer_restarts = int(kernel_ucb_optimizer_restarts)
         self.kernel_ucb_replay_window = int(kernel_ucb_replay_window)
+        self.dqn_action_endpoints = dqn_action_endpoints
+        self.dqn_action_timeout = float(dqn_action_timeout)
+        self.dqn_action_retries = int(dqn_action_retries)
+        self.dqn_learning_rate = float(dqn_learning_rate)
+        self.dqn_gamma = float(dqn_gamma)
+        self.dqn_replay_capacity = int(dqn_replay_capacity)
+        self.dqn_batch_size = int(dqn_batch_size)
+        self.dqn_learning_starts = int(dqn_learning_starts)
+        self.dqn_target_update_interval = int(dqn_target_update_interval)
+        self.dqn_epsilon_start = float(dqn_epsilon_start)
+        self.dqn_epsilon_end = float(dqn_epsilon_end)
+        self.dqn_epsilon_decay_steps = int(dqn_epsilon_decay_steps)
+        self.dqn_gradient_updates = int(dqn_gradient_updates)
+        self.dqn_gradient_clip = float(dqn_gradient_clip)
+        self.dqn_hidden_dim = int(dqn_hidden_dim)
+        self.dqn_seed = int(dqn_seed)
+        if self.rl_algo == "dqn":
+            if self.node_index != 0:
+                raise ValueError("Centralized DQN controller must run on node 0")
+            if not self.dqn_action_endpoints:
+                raise ValueError("DQN requires --dqn-action-endpoints")
         # Agent/rl root (parent of controllers/)
         self._rl_root = Path(__file__).resolve().parent.parent
 
@@ -191,6 +229,8 @@ class AutopilotController:
             return "train_gp_bo.py"
         if self.rl_algo == "kernel_ucb":
             return "train_kernel_ucb.py"
+        if self.rl_algo == "dqn":
+            return "train_dqn.py"
         return "train_cmab_continuous.py"
 
     def _checkpoint_dir(self) -> Path:
@@ -199,6 +239,11 @@ class AutopilotController:
             return home / "gp_bo_checkpoints"
         if self.rl_algo == "kernel_ucb":
             return home / "kernel_ucb_checkpoints"
+        if self.rl_algo == "dqn":
+            # CloudLab metrics live under /local/metrics-0, so keep the
+            # centralized checkpoint outside the git-reset repository at
+            # /local/dqn_checkpoints.
+            return self.metrics_dir.parent / "dqn_checkpoints"
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
@@ -239,6 +284,29 @@ class AutopilotController:
                         "--timeout-max", str(self.kernel_ucb_timeout_max),
                         "--optimizer-restarts", str(self.kernel_ucb_optimizer_restarts),
                         "--replay-window", str(self.kernel_ucb_replay_window),
+                    ]
+                )
+            if self.rl_algo == "dqn":
+                cmd.extend(
+                    [
+                        "--action-endpoints", str(self.dqn_action_endpoints),
+                        "--action-timeout", str(self.dqn_action_timeout),
+                        "--action-retries", str(self.dqn_action_retries),
+                        "--learning-rate", str(self.dqn_learning_rate),
+                        "--gamma", str(self.dqn_gamma),
+                        "--replay-capacity", str(self.dqn_replay_capacity),
+                        "--batch-size", str(self.dqn_batch_size),
+                        "--learning-starts", str(self.dqn_learning_starts),
+                        "--target-update-interval",
+                        str(self.dqn_target_update_interval),
+                        "--epsilon-start", str(self.dqn_epsilon_start),
+                        "--epsilon-end", str(self.dqn_epsilon_end),
+                        "--epsilon-decay-steps",
+                        str(self.dqn_epsilon_decay_steps),
+                        "--gradient-updates", str(self.dqn_gradient_updates),
+                        "--gradient-clip", str(self.dqn_gradient_clip),
+                        "--hidden-dim", str(self.dqn_hidden_dim),
+                        "--seed", str(self.dqn_seed),
                     ]
                 )
 
@@ -353,8 +421,8 @@ def main():
     parser.add_argument('--resume-from', type=str, default=None,
                        help='Resume RL policy from checkpoint path')
     parser.add_argument('--rl-algo', type=str, default='cmab',
-                       choices=['cmab', 'gp_bo', 'kernel_ucb'],
-                       help='RL algorithm: cmab, gp_bo, or continuous kernel_ucb')
+                       choices=['cmab', 'gp_bo', 'kernel_ucb', 'dqn'],
+                       help='RL algorithm: cmab, gp_bo, continuous kernel_ucb, or centralized dqn')
     parser.add_argument(
         '--warmup-iterations',
         type=int,
@@ -377,6 +445,22 @@ def main():
     parser.add_argument('--kernel-ucb-timeout-max', type=float, default=300.0)
     parser.add_argument('--kernel-ucb-optimizer-restarts', type=int, default=5)
     parser.add_argument('--kernel-ucb-replay-window', type=int, default=200)
+    parser.add_argument('--dqn-action-endpoints', type=str, default=None)
+    parser.add_argument('--dqn-action-timeout', type=float, default=2.0)
+    parser.add_argument('--dqn-action-retries', type=int, default=2)
+    parser.add_argument('--dqn-learning-rate', type=float, default=1e-3)
+    parser.add_argument('--dqn-gamma', type=float, default=0.90)
+    parser.add_argument('--dqn-replay-capacity', type=int, default=2000)
+    parser.add_argument('--dqn-batch-size', type=int, default=32)
+    parser.add_argument('--dqn-learning-starts', type=int, default=32)
+    parser.add_argument('--dqn-target-update-interval', type=int, default=20)
+    parser.add_argument('--dqn-epsilon-start', type=float, default=1.0)
+    parser.add_argument('--dqn-epsilon-end', type=float, default=0.05)
+    parser.add_argument('--dqn-epsilon-decay-steps', type=int, default=200)
+    parser.add_argument('--dqn-gradient-updates', type=int, default=1)
+    parser.add_argument('--dqn-gradient-clip', type=float, default=10.0)
+    parser.add_argument('--dqn-hidden-dim', type=int, default=64)
+    parser.add_argument('--dqn-seed', type=int, default=0)
 
     args = parser.parse_args()
 
@@ -415,6 +499,22 @@ def main():
             kernel_ucb_timeout_max=args.kernel_ucb_timeout_max,
             kernel_ucb_optimizer_restarts=args.kernel_ucb_optimizer_restarts,
             kernel_ucb_replay_window=args.kernel_ucb_replay_window,
+            dqn_action_endpoints=args.dqn_action_endpoints,
+            dqn_action_timeout=args.dqn_action_timeout,
+            dqn_action_retries=args.dqn_action_retries,
+            dqn_learning_rate=args.dqn_learning_rate,
+            dqn_gamma=args.dqn_gamma,
+            dqn_replay_capacity=args.dqn_replay_capacity,
+            dqn_batch_size=args.dqn_batch_size,
+            dqn_learning_starts=args.dqn_learning_starts,
+            dqn_target_update_interval=args.dqn_target_update_interval,
+            dqn_epsilon_start=args.dqn_epsilon_start,
+            dqn_epsilon_end=args.dqn_epsilon_end,
+            dqn_epsilon_decay_steps=args.dqn_epsilon_decay_steps,
+            dqn_gradient_updates=args.dqn_gradient_updates,
+            dqn_gradient_clip=args.dqn_gradient_clip,
+            dqn_hidden_dim=args.dqn_hidden_dim,
+            dqn_seed=args.dqn_seed,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

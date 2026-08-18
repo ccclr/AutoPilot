@@ -43,7 +43,7 @@ def local(ctx, debug=False):
         'enable_rl': True,
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab", "gp_bo", or continuous-timeout "kernel_ucb".
+        # RL algorithm: "cmab", "gp_bo", continuous-timeout "kernel_ucb", or "dqn".
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
         # Maximum training iterations in this run. None = train until experiment ends.
@@ -57,6 +57,25 @@ def local(ctx, debug=False):
         'kernel_ucb_timeout_max': 300.0,
         'kernel_ucb_optimizer_restarts': 5,
         'kernel_ucb_replay_window': 200,
+
+        # Centralized DQN parameters (used only when rl_algo="dqn").
+        'dqn_training_node': 0,
+        'dqn_action_port': 19100,
+        'dqn_action_timeout': 2.0,
+        'dqn_action_retries': 2,
+        'dqn_learning_rate': 1e-3,
+        'dqn_gamma': 0.90,
+        'dqn_replay_capacity': 2000,
+        'dqn_batch_size': 32,
+        'dqn_learning_starts': 32,
+        'dqn_target_update_interval': 20,
+        'dqn_epsilon_start': 1.0,
+        'dqn_epsilon_end': 0.05,
+        'dqn_epsilon_decay_steps': 200,
+        'dqn_gradient_updates': 1,
+        'dqn_gradient_clip': 10.0,
+        'dqn_hidden_dim': 64,
+        'dqn_seed': 0,
 
         # Environment-change detector (relative change between reward windows).
         'enable_reward_change_monitor': True,
@@ -187,42 +206,129 @@ def install(ctx):
     except BenchError as e:
         Print.error(e)
 
-from fabric import task
-
 
 @task
 def remote(ctx, debug=False):
-    ''' Run benchmarks on CloudLab '''
-    bench_params = {
+    """Run benchmarks on CloudLab.
+
+    The configuration is grouped by purpose below and flattened before it is
+    passed to CloudLabBench. For most experiments, only edit the sections under
+    "Frequently changed experiment settings".
+    """
+
+    # ======================================================================
+    # Frequently changed experiment settings
+    # ======================================================================
+
+    # 1. Workload and experiment duration.
+    run_config = {
         'faults': 0,
         'nodes': [4],
         'workers': 1,
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 1200,
+        'duration': 900,
         'runs': 1,
+        # True: create a timestamped txt file for every run instead of
+        # appending to an existing result file.
+        'new_result_file_per_run': True,
+    }
 
-        # Experiment-level RL switch. When False, parameters stay fixed while
-        # metrics collection and environment-change detection still run.
+    # 2. Learning algorithm and checkpoint selection.
+    rl_config = {
+        # False runs the protocol with fixed parameters and no RL controller.
         'enable_rl': True,
-        # Set these two values on node0 before each run. Fabric snapshots this
-        # file before git reset, then copies it to every controller node.
-        # A checkpoint must match rl_algo; use False for a fresh KernelUCB run.
-        'enable_checkpoint': True,
-        'checkpoint_path': '/local/checkpoint_library/cmab_A_340.pkl',
-        # Legacy mode only: a path that already exists on every remote node.
-        'cmab_resume_from': None,
-        # Change only this value to switch the learning algorithm:
-        # "cmab", "gp_bo", or continuous-timeout "kernel_ucb".
-        'rl_algo': 'cmab',
-        # Let CMAB train normally. Experience matching remains report-only and
-        # does not inject A/B checkpoint samples into the active replay bucket.
+        # Supported values: "cmab", "gp_bo", "kernel_ucb", and "dqn".
+        'rl_algo': 'dqn',
         'rl_warmup_iterations': 0,
-        # Maximum training iterations in this run. None = train until experiment ends.
-        'rl_max_training_iterations': 200,
+        # None means training continues until the experiment ends.
+        'rl_max_training_iterations': None,
+        # The checkpoint must have been created by the selected algorithm.
+        'enable_checkpoint': False,
+        'checkpoint_path': None,
+        # Legacy CMAB mode: path already present on every remote node.
+        'cmab_resume_from': None,
+    }
 
-        # Continuous KernelUCB parameters (used only when rl_algo="kernel_ucb").
+    # 3. DQN settings (used only when rl_algo="dqn").
+    dqn_config = {
+        'dqn_training_node': 0,
+        'dqn_action_port': 19100,
+        'dqn_action_timeout': 2.0,
+        'dqn_action_retries': 2,
+        'dqn_learning_rate': 1e-3,
+        'dqn_gamma': 0.90,
+        'dqn_replay_capacity': 2000,
+        'dqn_batch_size': 32,
+        'dqn_learning_starts': 32,
+        'dqn_target_update_interval': 20,
+        'dqn_epsilon_start': 1.0,
+        'dqn_epsilon_end': 0.05,
+        'dqn_epsilon_decay_steps': 200,
+        'dqn_gradient_updates': 1,
+        'dqn_gradient_clip': 10.0,
+        'dqn_hidden_dim': 64,
+        'dqn_seed': 0,
+    }
+
+    # 4. Initial protocol parameters. RL may change the action-controlled
+    # parameters after the experiment starts.
+    protocol_config = {
+        'timeout_delay': 5_000,  # ms
+        'header_size': 32,  # bytes
+        'max_header_delay': 5000,  # ms
+        'gc_depth': 50,  # rounds
+        'sync_retry_delay': 5000,  # ms
+        'sync_retry_nodes': 3,
+        'batch_size': 100_000,  # bytes
+        'max_batch_delay': 5000,  # ms
+        'use_optimistic_tips': True,
+        'use_parallel_proposals': True,
+        'k': 4,
+        'use_fast_path': True,
+        'fast_path_timeout': 100,
+        'use_ride_share': False,
+        'car_timeout': 2000,
+        'cut_condition_type': 3,
+        'use_fast_sync': True,
+        'use_exponential_timeouts': True,
+    }
+
+    # 5. Network environment. Set simulate_asynchrony=False for static A.
+    # When enabled, each list position describes one fault window.
+    asynchrony_config = {
+        'simulate_asynchrony': False,
+        'asynchrony_type': [4, 4],
+        'asynchrony_start': [300, 900],  # s
+        'asynchrony_duration': [300, 300],  # s
+        'affected_nodes': [2, 2],
+        'asynchrony_nodes': [2, 2],
+        'asynchrony_regions': [['utah'], ['utah']],
+        'egress_penalty': [[[100, 100]], [[100, 100]]],
+    }
+
+    # 6. Environment-change monitoring and experience matching.
+    monitor_config = {
+        # False skips monitor startup and implicitly disables matching.
+        'enable_reward_change_monitor': False,
+        'reward_change_window_size': 10,
+        'reward_change_lag': 3,
+        'reward_change_threshold': 0.30,
+        'reward_change_confirmations': 3,
+        'enable_experience_matching': False,
+        'experience_checkpoint_a': '/local/checkpoint_library/cmab_A_340.pkl',
+        'experience_checkpoint_b': '/local/checkpoint_library/cmab_B_220.pkl',
+        'experience_pool_size': 200,
+        'experience_match_reward_count': 3,
+    }
+
+    # ======================================================================
+    # Advanced settings (normally left unchanged)
+    # ======================================================================
+
+    # Used only when rl_algo="kernel_ucb".
+    kernel_ucb_config = {
         'kernel_ucb_alpha': 1.0,
         'kernel_ucb_regularization': 0.1,
         'kernel_ucb_length_scale': 1.0,
@@ -230,81 +336,53 @@ def remote(ctx, debug=False):
         'kernel_ucb_timeout_max': 300.0,
         'kernel_ucb_optimizer_restarts': 5,
         'kernel_ucb_replay_window': 200,
+    }
 
-        # Environment-change detector (relative change between reward windows).
-        # False skips all reward-change monitor processes and implicitly
-        # disables experience matching, so this is the single master switch.
-        'enable_reward_change_monitor': True,
-        'reward_change_window_size': 10,
-        'reward_change_lag': 3,
-        # Confirm an environment change when the relative reward-window score
-        # stays above 30% for the configured number of confirmations.
-        'reward_change_threshold': 0.30,
-        'reward_change_confirmations': 3,
-        # Phase one: detect a change and only print whether A or B is closer.
-        # These node0-local files are distributed to every monitor by Fabric.
-        'enable_experience_matching': True,
-        'experience_checkpoint_a': '/local/checkpoint_library/cmab_A_340.pkl',
-        'experience_checkpoint_b': '/local/checkpoint_library/cmab_B_220.pkl',
-        'experience_pool_size': 200,
-        'experience_match_reward_count': 3,
-
-        # Unused
+    partition_config = {
         'simulate_partition': False,
         'partition_start': 5,
         'partition_duration': 5,
         'partition_nodes': 2,
+    }
 
-        # Hotspot nesting aligned with asynchrony/egress_penalty:
-        #   hotspot_regions      = [['utah']]
-        #   hotspot_nodes        = [[3]]                 # pick 3 nodes in utah
-        #   hotspot_region_rates = [[[0.5, 0.5, 0.3]]]   # per-node rates for those 3
+    hotspot_config = {
         'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['utah']],
         'hotspot_nodes': [[3]],
         'hotspot_region_rates': [[[0.5, 0.3, 0.3]]],
     }
-    node_params = {
-        'timeout_delay': 5_000,  # ms
-        'header_size': 32,  # bytes
-        'max_header_delay': 5000,  # ms
-        'gc_depth': 50,  # rounds
-        'sync_retry_delay': 5000,  # ms
-        'sync_retry_nodes': 3,  # number of nodes
-        'batch_size': 100_000,  # bytes
-        'max_batch_delay': 5000,  # ms
-        'use_optimistic_tips': True,
-        'use_parallel_proposals': True,
-        'k': 4,
+
+    measurement_config = {
         'epoch_slots': 32,
         'window_size': 16,
         'applied_begin': 30,
-        'use_fast_path': True,
-        'fast_path_timeout': 100,
-        'use_ride_share': False,
-        'car_timeout': 2000,
-        'cut_condition_type': 3,
+    }
 
-        'simulate_asynchrony': True,
-        'asynchrony_type': [4, 4],
-
-        'asynchrony_start': [300, 900],  # s
-        'asynchrony_duration': [300, 300],  # s
-        'affected_nodes': [2, 2],
-        'asynchrony_nodes': [2, 2],
-        'asynchrony_regions': [['utah'], ['utah']],
-        # Match the B environment used to produce cmab_B_220.pkl.
-        'egress_penalty': [[[100, 100]], [[100, 100]]],
-
-        'use_fast_sync': True,
-        'use_exponential_timeouts': True,
-
+    aggregation_config = {
         'aggregation_strategy': 'normal',
         'data_pollution_node_ids': [],
         'data_pollution_prob': 1.0,
         'data_pollution_strategy': 'random_scale',
     }
+
+    # CloudLabBench still receives the same two flat dictionaries as before.
+    bench_params = {
+        **run_config,
+        **rl_config,
+        **dqn_config,
+        **monitor_config,
+        **kernel_ucb_config,
+        **partition_config,
+        **hotspot_config,
+    }
+    node_params = {
+        **protocol_config,
+        **asynchrony_config,
+        **measurement_config,
+        **aggregation_config,
+    }
+
     try:
         Bench(ctx).run(bench_params, node_params, debug)
     except BenchError as e:

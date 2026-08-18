@@ -70,10 +70,17 @@ class PathMaker:
         return 'results'
 
     @staticmethod
-    def result_file(faults, nodes, workers, collocate, rate, tx_size):
+    def result_file(
+        faults, nodes, workers, collocate, rate, tx_size, result_id=None
+    ):
+        filename = (
+            f'bench-{faults}-{nodes}-{workers}-{collocate}-{rate}-{tx_size}'
+        )
+        if result_id is not None:
+            filename = f'{filename}-{result_id}'
         return join(
             PathMaker.results_path(),
-            f'bench-{faults}-{nodes}-{workers}-{collocate}-{rate}-{tx_size}.txt'
+            f'{filename}.txt'
         )
 
     @staticmethod

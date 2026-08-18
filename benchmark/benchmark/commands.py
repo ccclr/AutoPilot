@@ -289,6 +289,28 @@ class CommandMaker:
         return cmd
 
     @staticmethod
+    def run_action_receiver(
+        node_index=None,
+        repo_name=None,
+        parameters_file=None,
+        python_bin=None,
+        bind_host='0.0.0.0',
+        port=19100,
+    ):
+        """Generate the per-node receiver used by centralized DQN."""
+        receiver_path = (
+            f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/'
+            'action_receiver.py'
+        )
+        python = CommandMaker.agent_python(python_bin)
+        cmd = f'{python} {receiver_path}'
+        cmd += f' --node-index {int(node_index)}'
+        cmd += f' --parameters-file {shlex.quote(str(parameters_file))}'
+        cmd += f' --bind-host {shlex.quote(str(bind_host))}'
+        cmd += f' --port {int(port)}'
+        return cmd
+
+    @staticmethod
     def run_controller(
         node_index=None,
         repo_name=None,
@@ -306,6 +328,22 @@ class CommandMaker:
         kernel_ucb_timeout_max=None,
         kernel_ucb_optimizer_restarts=None,
         kernel_ucb_replay_window=None,
+        dqn_action_endpoints=None,
+        dqn_action_timeout=None,
+        dqn_action_retries=None,
+        dqn_learning_rate=None,
+        dqn_gamma=None,
+        dqn_replay_capacity=None,
+        dqn_batch_size=None,
+        dqn_learning_starts=None,
+        dqn_target_update_interval=None,
+        dqn_epsilon_start=None,
+        dqn_epsilon_end=None,
+        dqn_epsilon_decay_steps=None,
+        dqn_gradient_updates=None,
+        dqn_gradient_clip=None,
+        dqn_hidden_dim=None,
+        dqn_seed=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -344,4 +382,42 @@ class CommandMaker:
             )
         if kernel_ucb_replay_window is not None:
             cmd += f' --kernel-ucb-replay-window {int(kernel_ucb_replay_window)}'
+        if dqn_action_endpoints:
+            cmd += (
+                ' --dqn-action-endpoints '
+                f'{shlex.quote(str(dqn_action_endpoints))}'
+            )
+        if dqn_action_timeout is not None:
+            cmd += f' --dqn-action-timeout {float(dqn_action_timeout)}'
+        if dqn_action_retries is not None:
+            cmd += f' --dqn-action-retries {int(dqn_action_retries)}'
+        if dqn_learning_rate is not None:
+            cmd += f' --dqn-learning-rate {float(dqn_learning_rate)}'
+        if dqn_gamma is not None:
+            cmd += f' --dqn-gamma {float(dqn_gamma)}'
+        if dqn_replay_capacity is not None:
+            cmd += f' --dqn-replay-capacity {int(dqn_replay_capacity)}'
+        if dqn_batch_size is not None:
+            cmd += f' --dqn-batch-size {int(dqn_batch_size)}'
+        if dqn_learning_starts is not None:
+            cmd += f' --dqn-learning-starts {int(dqn_learning_starts)}'
+        if dqn_target_update_interval is not None:
+            cmd += (
+                ' --dqn-target-update-interval '
+                f'{int(dqn_target_update_interval)}'
+            )
+        if dqn_epsilon_start is not None:
+            cmd += f' --dqn-epsilon-start {float(dqn_epsilon_start)}'
+        if dqn_epsilon_end is not None:
+            cmd += f' --dqn-epsilon-end {float(dqn_epsilon_end)}'
+        if dqn_epsilon_decay_steps is not None:
+            cmd += f' --dqn-epsilon-decay-steps {int(dqn_epsilon_decay_steps)}'
+        if dqn_gradient_updates is not None:
+            cmd += f' --dqn-gradient-updates {int(dqn_gradient_updates)}'
+        if dqn_gradient_clip is not None:
+            cmd += f' --dqn-gradient-clip {float(dqn_gradient_clip)}'
+        if dqn_hidden_dim is not None:
+            cmd += f' --dqn-hidden-dim {int(dqn_hidden_dim)}'
+        if dqn_seed is not None:
+            cmd += f' --dqn-seed {int(dqn_seed)}'
         return cmd
