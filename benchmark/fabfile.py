@@ -230,7 +230,8 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        'duration': 900,
+        # First full Q(state, action) DQN run in the static A environment.
+        'duration': 1800,
         'runs': 1,
         # True: create a timestamped txt file for every run instead of
         # appending to an existing result file.

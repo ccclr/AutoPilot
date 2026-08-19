@@ -241,9 +241,14 @@ class AutopilotController:
             return home / "kernel_ucb_checkpoints"
         if self.rl_algo == "dqn":
             # CloudLab metrics live under /local/metrics-0, so keep the
-            # centralized checkpoint outside the git-reset repository at
-            # /local/dqn_checkpoints.
-            return self.metrics_dir.parent / "dqn_checkpoints"
+            # centralized checkpoint outside the git-reset repository.  Keep
+            # action-conditioned checkpoints separate from the incompatible
+            # legacy 72-output-head checkpoints.
+            return (
+                self.metrics_dir.parent
+                / "dqn_checkpoints"
+                / "state_action_q_v1"
+            )
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
