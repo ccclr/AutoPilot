@@ -888,7 +888,7 @@ class CloudLabBench:
             if rl_algo == 'dqn':
                 Print.info('DQN training node: node0 (centralized)')
                 Print.info(
-                    'DQN: '
+                    'DQN: q_architecture=Q(state, action), '
                     f'lr={bench_parameters.dqn_learning_rate}, '
                     f'gamma={bench_parameters.dqn_gamma}, '
                     f'replay={bench_parameters.dqn_replay_capacity}, '

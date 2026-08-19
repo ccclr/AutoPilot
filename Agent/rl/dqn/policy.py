@@ -11,22 +11,26 @@ import numpy as np
 import torch
 from torch import nn
 
+from .action_features import ActionFeatureEncoder
+
 logger = logging.getLogger(__name__)
 
 
 class QNetwork(nn.Module):
-    def __init__(self, state_dim: int, action_count: int, hidden_dim: int = 64):
+    """Action-conditioned critic returning one Q value per input pair."""
+
+    def __init__(self, input_dim: int, hidden_dim: int = 64):
         super().__init__()
         self.network = nn.Sequential(
-            nn.Linear(state_dim, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, action_count),
+            nn.Linear(hidden_dim, 1),
         )
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
-        return self.network(state)
+    def forward(self, state_action: torch.Tensor) -> torch.Tensor:
+        return self.network(state_action)
 
 
 @dataclass(frozen=True)
@@ -39,7 +43,10 @@ class Transition:
 
 
 class DQNPolicy:
-    """Standard DQN with replay buffer and a hard-updated target network."""
+    """Action-conditioned DQN with replay and a hard-updated target network."""
+
+    CHECKPOINT_VERSION = 2
+    Q_ARCHITECTURE = "state_action_q_v1"
 
     def __init__(
         self,
@@ -81,6 +88,9 @@ class DQNPolicy:
         self.state_dim = int(state_dim)
         self.arms = tuple(str(arm) for arm in arms)
         self.action_count = len(self.arms)
+        self.action_encoder = ActionFeatureEncoder(self.arms)
+        self.action_feature_dim = self.action_encoder.feature_dim
+        self.network_input_dim = self.state_dim + self.action_feature_dim
         self.learning_rate = float(learning_rate)
         self.gamma = float(gamma)
         self.replay_capacity = int(replay_capacity)
@@ -101,14 +111,17 @@ class DQNPolicy:
         # competing with the protocol process on node0.
         torch.set_num_threads(1)
         self.device = torch.device("cpu")
-        self.online_network = QNetwork(
-            self.state_dim, self.action_count, self.hidden_dim
-        ).to(self.device)
-        self.target_network = QNetwork(
-            self.state_dim, self.action_count, self.hidden_dim
-        ).to(self.device)
+        self.online_network = QNetwork(self.network_input_dim, self.hidden_dim).to(
+            self.device
+        )
+        self.target_network = QNetwork(self.network_input_dim, self.hidden_dim).to(
+            self.device
+        )
         self.target_network.load_state_dict(self.online_network.state_dict())
         self.target_network.eval()
+        self._action_features = torch.from_numpy(
+            self.action_encoder.features.copy()
+        ).to(self.device)
         self.optimizer = torch.optim.Adam(
             self.online_network.parameters(), lr=self.learning_rate
         )
@@ -118,6 +131,16 @@ class DQNPolicy:
         self.decision_steps = 0
         self.gradient_steps = 0
         self.transitions_seen = 0
+        logger.info(
+            "DQN_POLICY_INIT architecture=%s state_dim=%d action_feature_dim=%d "
+            "input_dim=%d actions=%d action_features=%s",
+            self.Q_ARCHITECTURE,
+            self.state_dim,
+            self.action_feature_dim,
+            self.network_input_dim,
+            self.action_count,
+            self.action_encoder.feature_names,
+        )
 
     @property
     def epsilon(self) -> float:
@@ -132,7 +155,12 @@ class DQNPolicy:
         probe = float(self.rng.random())
         with torch.no_grad():
             state_tensor = torch.from_numpy(state_array).unsqueeze(0).to(self.device)
-            q_values = self.online_network(state_tensor).squeeze(0).cpu().numpy()
+            q_values = (
+                self._q_values_for_all_actions(self.online_network, state_tensor)
+                .squeeze(0)
+                .cpu()
+                .numpy()
+            )
 
         if probe < epsilon:
             action_id = int(self.rng.integers(self.action_count))
@@ -229,11 +257,15 @@ class DQNPolicy:
             [item.done for item in batch], dtype=torch.float32, device=self.device
         )
 
-        predicted = self.online_network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        predicted = self._q_values_for_actions(
+            self.online_network, states, actions
+        )
         with torch.no_grad():
             # Vanilla DQN target.  Double-DQN is deliberately not enabled so
             # this remains a clear, conventional DQN baseline.
-            next_q = self.target_network(next_states).max(dim=1).values
+            next_q = self._q_values_for_all_actions(
+                self.target_network, next_states
+            ).max(dim=1).values
             targets = rewards + self.gamma * (1.0 - dones) * next_q
 
         loss = self.loss_function(predicted, targets)
@@ -276,10 +308,13 @@ class DQNPolicy:
         torch.save(
             {
                 "algo": "dqn",
-                "version": 1,
+                "version": self.CHECKPOINT_VERSION,
+                "q_architecture": self.Q_ARCHITECTURE,
                 "state_dim": self.state_dim,
                 "arms": self.arms,
                 "hidden_dim": self.hidden_dim,
+                "action_feature_dim": self.action_feature_dim,
+                "action_feature_schema": self.action_encoder.schema_dict(),
                 "online_network": self.online_network.state_dict(),
                 "target_network": self.target_network.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
@@ -304,10 +339,26 @@ class DQNPolicy:
             checkpoint = torch.load(path, map_location=self.device)
         if checkpoint.get("algo") != "dqn":
             raise ValueError(f"incompatible checkpoint algo={checkpoint.get('algo')!r}")
+        if (
+            int(checkpoint.get("version", -1)) != self.CHECKPOINT_VERSION
+            or checkpoint.get("q_architecture") != self.Q_ARCHITECTURE
+        ):
+            raise ValueError(
+                "DQN checkpoint architecture is incompatible: expected "
+                f"{self.Q_ARCHITECTURE!r} version {self.CHECKPOINT_VERSION}; "
+                "legacy 72-output checkpoints cannot restore this network"
+            )
         if int(checkpoint.get("state_dim", -1)) != self.state_dim:
             raise ValueError("DQN checkpoint state dimension does not match")
         if tuple(checkpoint.get("arms", ())) != self.arms:
             raise ValueError("DQN checkpoint action catalog does not match")
+        if int(checkpoint.get("action_feature_dim", -1)) != self.action_feature_dim:
+            raise ValueError("DQN checkpoint action feature dimension does not match")
+        if (
+            checkpoint.get("action_feature_schema")
+            != self.action_encoder.schema_dict()
+        ):
+            raise ValueError("DQN checkpoint action feature schema does not match")
 
         self.online_network.load_state_dict(checkpoint["online_network"])
         self.target_network.load_state_dict(checkpoint["target_network"])
@@ -340,8 +391,12 @@ class DQNPolicy:
             self.gradient_steps,
         )
 
-    def config_dict(self) -> dict[str, float | int]:
+    def config_dict(self) -> dict[str, float | int | str]:
         return {
+            "q_architecture": self.Q_ARCHITECTURE,
+            "state_dim": self.state_dim,
+            "action_feature_dim": self.action_feature_dim,
+            "network_input_dim": self.network_input_dim,
             "learning_rate": self.learning_rate,
             "gamma": self.gamma,
             "replay_capacity": self.replay_capacity,
@@ -355,6 +410,43 @@ class DQNPolicy:
             "hidden_dim": self.hidden_dim,
             "seed": self.seed,
         }
+
+    def _q_values_for_actions(
+        self,
+        network: QNetwork,
+        states: torch.Tensor,
+        actions: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return Q(s, a) for one selected action per state."""
+
+        action_features = self._action_features.index_select(0, actions)
+        state_actions = torch.cat((states, action_features), dim=1)
+        return network(state_actions).squeeze(1)
+
+    def _q_values_for_all_actions(
+        self,
+        network: QNetwork,
+        states: torch.Tensor,
+    ) -> torch.Tensor:
+        """Evaluate every catalog action for each state in one batched call."""
+
+        if states.ndim != 2 or states.shape[1] != self.state_dim:
+            raise ValueError(
+                "state tensor must have shape "
+                f"(batch, {self.state_dim}), got {tuple(states.shape)}"
+            )
+        batch_size = states.shape[0]
+        expanded_states = states.unsqueeze(1).expand(
+            batch_size, self.action_count, self.state_dim
+        )
+        expanded_actions = self._action_features.unsqueeze(0).expand(
+            batch_size, self.action_count, self.action_feature_dim
+        )
+        state_actions = torch.cat((expanded_states, expanded_actions), dim=2)
+        q_values = network(
+            state_actions.reshape(batch_size * self.action_count, -1)
+        )
+        return q_values.reshape(batch_size, self.action_count)
 
     def _prepare_state(self, state: np.ndarray | Iterable[float]) -> np.ndarray:
         values = np.asarray(state, dtype=np.float32).reshape(-1).copy()

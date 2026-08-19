@@ -8,7 +8,7 @@ from pathlib import Path
 from actions.action_encode import ActionCodec
 from cmab import ArmCatalog
 from controllers.action_transport import ActionBroadcaster
-from dqn import DQNTrainer
+from dqn import DQNPolicy, DQNTrainer
 
 
 def main() -> None:
@@ -74,8 +74,10 @@ def main() -> None:
         "seed": args.seed,
     }
     logger.info(
-        "DQN_CONFIG actions=%d policy=%s endpoints=%s warmup_ignored=%d",
+        "DQN_CONFIG actions=%d q_architecture=%s policy=%s endpoints=%s "
+        "warmup_ignored=%d",
         len(arm_catalog.list_arms()),
+        DQNPolicy.Q_ARCHITECTURE,
         policy_kwargs,
         args.action_endpoints,
         args.warmup_iterations,
