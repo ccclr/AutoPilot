@@ -128,6 +128,7 @@ class AutopilotController:
         dqn_gradient_clip: float = 10.0,
         dqn_hidden_dim: int = 64,
         dqn_seed: int = 0,
+        enable_cmab_protocol_rules: bool = False,
     ):
         """
         Initialize controller
@@ -181,6 +182,7 @@ class AutopilotController:
         self.dqn_gradient_clip = float(dqn_gradient_clip)
         self.dqn_hidden_dim = int(dqn_hidden_dim)
         self.dqn_seed = int(dqn_seed)
+        self.enable_cmab_protocol_rules = bool(enable_cmab_protocol_rules)
         if self.rl_algo == "dqn":
             if self.node_index != 0:
                 raise ValueError("Centralized DQN controller must run on node 0")
@@ -279,6 +281,8 @@ class AutopilotController:
                 cmd.extend(
                     ["--num-iterations", str(self.max_training_iterations)]
                 )
+            if self.rl_algo == "cmab" and self.enable_cmab_protocol_rules:
+                cmd.append("--enable-protocol-rules")
             if self.rl_algo == "kernel_ucb":
                 cmd.extend(
                     [
@@ -466,6 +470,11 @@ def main():
     parser.add_argument('--dqn-gradient-clip', type=float, default=10.0)
     parser.add_argument('--dqn-hidden-dim', type=int, default=64)
     parser.add_argument('--dqn-seed', type=int, default=0)
+    parser.add_argument(
+        '--enable-cmab-protocol-rules',
+        action='store_true',
+        help='Enable structured, protocol-aware CMAB exploration',
+    )
 
     args = parser.parse_args()
 
@@ -483,6 +492,7 @@ def main():
         else 'continuous'
     )
     print(f"🔢 Max training iterations: {max_iterations}")
+    print(f"🧭 CMAB protocol rules: {args.enable_cmab_protocol_rules}")
 
     # Logger will be initialized by AutopilotController
 
@@ -520,6 +530,7 @@ def main():
             dqn_gradient_clip=args.dqn_gradient_clip,
             dqn_hidden_dim=args.dqn_hidden_dim,
             dqn_seed=args.dqn_seed,
+            enable_cmab_protocol_rules=args.enable_cmab_protocol_rules,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

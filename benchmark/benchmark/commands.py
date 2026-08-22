@@ -344,6 +344,7 @@ class CommandMaker:
         dqn_gradient_clip=None,
         dqn_hidden_dim=None,
         dqn_seed=None,
+        enable_cmab_protocol_rules=False,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -360,6 +361,8 @@ class CommandMaker:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:
             cmd += f' --warmup-iterations {int(warmup_iterations)}'
+        if enable_cmab_protocol_rules:
+            cmd += ' --enable-cmab-protocol-rules'
         if max_training_iterations is not None:
             cmd += f' --max-training-iterations {int(max_training_iterations)}'
         if kernel_ucb_alpha is not None:

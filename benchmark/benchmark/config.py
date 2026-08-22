@@ -336,6 +336,15 @@ class BenchParameters:
                 raise ConfigError('rl_warmup_iterations must be an integer >= 0')
             self.rl_warmup_iterations = warmup
 
+            enable_cmab_protocol_rules = json.get(
+                'enable_cmab_protocol_rules', False
+            )
+            if not isinstance(enable_cmab_protocol_rules, bool):
+                raise ConfigError(
+                    'enable_cmab_protocol_rules must be true or false'
+                )
+            self.enable_cmab_protocol_rules = enable_cmab_protocol_rules
+
             # Maximum number of iterations processed by this RL trainer run.
             # None means that training continues until the experiment shuts it down.
             max_training_iterations = json.get('rl_max_training_iterations', 200)

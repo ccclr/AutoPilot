@@ -117,9 +117,10 @@ class CMABPolicy:
             return np.concatenate([ctx_vec, arm_vec])
         return arm_vec
 
-    def _feature_matrix(self, context):
-        """为所有 arm 构建特征矩阵，用于一次性预测"""
-        return np.array([self._feature_row(context, arm) for arm in self._arms])
+    def _feature_matrix(self, context, arms=None):
+        """为候选 arm 构建特征矩阵，用于一次性预测。"""
+        candidates = self._arms if arms is None else arms
+        return np.array([self._feature_row(context, arm) for arm in candidates])
 
     def _window_arm_counts_from_replay(self):
         """从最近 replay_window 的训练样本中统计各 arm 次数（checkpoint 兼容）。"""
@@ -149,11 +150,23 @@ class CMABPolicy:
 
         return window_counts, matched_rows
 
-    def select_arm(self, context, shared_seed_hex: str | None = None):
+    def select_arm(
+        self,
+        context,
+        shared_seed_hex: str | None = None,
+        allowed_arms=None,
+    ):
+        candidates = list(self._arms if allowed_arms is None else allowed_arms)
+        if not candidates:
+            raise ValueError("CMAB select_arm requires at least one candidate")
+        unknown = [arm for arm in candidates if arm not in self._arms]
+        if unknown:
+            raise ValueError(f"Unknown CMAB candidate arms: {unknown}")
+
         # random mode
         if self.policy_name == "random":
-            idx = self._shared_rng_index(len(self._arms), shared_seed_hex, "random_policy")
-            return self._arms[idx]
+            idx = self._shared_rng_index(len(candidates), shared_seed_hex, "random_policy")
+            return candidates[idx]
 
         if (
             not self._is_fitted
@@ -161,18 +174,19 @@ class CMABPolicy:
             or not hasattr(self._rf, "estimators_")
             or len(getattr(self._rf, "estimators_", [])) == 0
         ):
-            idx = self._shared_rng_index(len(self._arms), shared_seed_hex, "cold_start")
+            idx = self._shared_rng_index(len(candidates), shared_seed_hex, "cold_start")
             logger.info("Model not ready: selecting deterministic exploration arm idx=%d.", idx)
-            return self._arms[idx]
+            return candidates[idx]
 
         current_epsilon = self._current_epsilon()
         epsilon_probe = self._shared_rng_uniform(shared_seed_hex, "epsilon_explore")
         if epsilon_probe < current_epsilon:
             # 从 replay 样本（X/y）统计最近窗口内各 arm 的出现次数，避免 checkpoint 恢复后局部状态丢失。
             window_counts, matched_rows = self._window_arm_counts_from_replay()
-            min_count = min(window_counts.values())
+            candidate_counts = {arm: window_counts[arm] for arm in candidates}
+            min_count = min(candidate_counts.values())
             least_tried = sorted(
-                [arm for arm, cnt in window_counts.items() if cnt == min_count]
+                [arm for arm, cnt in candidate_counts.items() if cnt == min_count]
             )
             idx = self._shared_rng_index(len(least_tried), shared_seed_hex, "epsilon_random_arm")
             chosen = least_tried[idx]
@@ -192,7 +206,7 @@ class CMABPolicy:
 
         # Aggregate predictions across trees.
         logger.info("INFERENCE_START")
-        features = self._feature_matrix(context)
+        features = self._feature_matrix(context, candidates)
         all_preds = np.stack([tree.predict(features) for tree in self._rf.estimators_])
         logger.info("INFERENCE_DONE")
 
@@ -216,7 +230,7 @@ class CMABPolicy:
         for rank, idx in enumerate(top5_mean_idx, start=1):
             logger.info(
                 "  #%d: arm=%s, mean=%.6f, std=%.6f",
-                rank, self._arms[idx], mean[idx], std[idx]
+                rank, candidates[idx], mean[idx], std[idx]
             )
 
         max_pred = mean.max()
@@ -234,11 +248,11 @@ class CMABPolicy:
         else:
             # Fallback deterministic tie-break for reproducibility when no shared seed is provided.
             chosen_idx = int(max_indices.min())
-        chosen = self._arms[chosen_idx]
+        chosen = candidates[chosen_idx]
 
-        topk = min(self._monitor_topk, len(self._arms))
+        topk = min(self._monitor_topk, len(candidates))
         topk_idx = np.argsort(mean)[::-1][:topk]
-        topk_arms = [self._arms[i] for i in topk_idx]
+        topk_arms = [candidates[i] for i in topk_idx]
         topk_mean = [float(mean[i]) for i in topk_idx]
         logger.info("MONITOR_TOP_ARMS k=%d arms=%s means=%s", topk, topk_arms, topk_mean)
 

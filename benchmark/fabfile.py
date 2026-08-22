@@ -230,7 +230,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        # First full Q(state, action) DQN run in the static A environment.
+        # Rule-guided CMAB run in the static A environment.
         'duration': 1800,
         'runs': 1,
         # True: create a timestamped txt file for every run instead of
@@ -243,10 +243,13 @@ def remote(ctx, debug=False):
         # False runs the protocol with fixed parameters and no RL controller.
         'enable_rl': True,
         # Supported values: "cmab", "gp_bo", "kernel_ucb", and "dqn".
-        'rl_algo': 'dqn',
+        'rl_algo': 'cmab',
         'rl_warmup_iterations': 0,
         # None means training continues until the experiment ends.
         'rl_max_training_iterations': None,
+        # One switch for the 8-epoch structured start, protocol filters, and
+        # incumbent/candidate confirmation used by rule-guided CMAB.
+        'enable_cmab_protocol_rules': True,
         # The checkpoint must have been created by the selected algorithm.
         'enable_checkpoint': False,
         'checkpoint_path': None,

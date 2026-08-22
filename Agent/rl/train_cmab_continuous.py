@@ -49,16 +49,22 @@ def main():
         default=5,
         help="Skip policy updates for the first N iterations (CMAB trainer warmup).",
     )
+    parser.add_argument(
+        "--enable-protocol-rules",
+        action="store_true",
+        help="Enable structured initialization and Autobahn-aware CMAB filters.",
+    )
     args = parser.parse_args()
 
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d max_iterations=%s",
+        "metrics_dir=%s parameters_file=%s warmup=%d max_iterations=%s protocol_rules=%s",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
         args.num_iterations,
+        args.enable_protocol_rules,
     )
 
     codec = ActionCodec(policy=args.policy)
@@ -87,6 +93,7 @@ def main():
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
         warmup_iterations=warmup_iterations,
+        enable_protocol_rules=args.enable_protocol_rules,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

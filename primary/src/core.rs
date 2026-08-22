@@ -481,7 +481,9 @@ impl Core {
                 committed_slots: HashMap::with_capacity(2 * gc_depth as usize),
                 last_committed_slot: 0,
 
-                use_fast_path,          //default = true
+                // A zero timeout is the CMAB action for disabling fast path.
+                // Enforce the same meaning at startup and during updates.
+                use_fast_path: use_fast_path && fast_path_timeout > 0,
                 use_optimistic_tips,    //default = true (TODO: implement non optimistic tip option)
                 use_parallel_proposals, //default = true (TODO: implement sequential slot option)
                 k,
@@ -4000,13 +4002,15 @@ impl Core {
                     self.fast_path_timeout, fast_path_timeout
                 );
                 self.fast_path_timeout = fast_path_timeout;
-                if fast_path_timeout == 0 {
-                    info!("🔄 Fast path timeout is 0, setting use_fast_path to false");
-                    self.use_fast_path = false;
-                } else {
-                    info!("🔄 Fast path timeout is not 0, setting use_fast_path to true");
-                    self.use_fast_path = true;
-                }
+                parameters_updated = true;
+            }
+            let should_use_fast_path = fast_path_timeout > 0;
+            if self.use_fast_path != should_use_fast_path {
+                info!(
+                    "🔄 Fast path enabled: {} -> {} (timeout={}ms)",
+                    self.use_fast_path, should_use_fast_path, fast_path_timeout
+                );
+                self.use_fast_path = should_use_fast_path;
                 parameters_updated = true;
             }
         }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
-from typing import Any, List, Tuple
+from typing import Any, Iterable, List, Mapping, Tuple
 
 from actions.action_encode import ActionCodec
 
@@ -33,6 +33,7 @@ class ArmCatalog:
         ]
         self._arms = self._build_arms(max_arms=max_arms, seed=seed)
         self._arm_lookup = {arm_id: arm_tuple for arm_id, arm_tuple in self._arms}
+        self._catalog_arm_ids = set(self._arm_lookup)
 
     def _build_arms(self, max_arms: int | None, seed: int) -> List[Tuple[Arm, Tuple[int, ...]]]:
         all_arms = list(itertools.product(*self._value_sets))
@@ -58,9 +59,76 @@ class ArmCatalog:
     def list_arms(self) -> List[Arm]:
         return list(self._arm_lookup.keys())
 
+    @property
+    def arm_keys(self) -> tuple[str, ...]:
+        return tuple(self._arm_keys)
+
+    @property
+    def timeout_values(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.codec.fast_path_timeout_ms_values)
+
+    @property
+    def cut_values(self) -> tuple[int, ...]:
+        return tuple(int(value) for value in self.codec.cut_condition_type_values)
+
+    def encode_params(self, params: Mapping[str, Any]) -> Arm:
+        values = tuple(int(params[key]) for key in self._arm_keys)
+        arm = self._encode_arm(values)
+        if arm not in self._catalog_arm_ids:
+            raise ValueError(f"Parameters are not in the CMAB arm catalog: {params}")
+        return arm
+
+    def contains(self, arm: Arm) -> bool:
+        return arm in self._catalog_arm_ids
+
+    def structured_initial_arms(self, base_arm: Arm) -> List[Arm]:
+        """Return base plus every one-factor alternative in a stable order."""
+        if base_arm not in self._catalog_arm_ids:
+            raise ValueError(f"Base arm is not in the CMAB arm catalog: {base_arm}")
+
+        base_values = self._arm_lookup[base_arm]
+        result = [base_arm]
+        for index, value_set in enumerate(self._value_sets):
+            for value in value_set:
+                if int(value) == int(base_values[index]):
+                    continue
+                candidate_values = list(base_values)
+                candidate_values[index] = int(value)
+                candidate = self._encode_arm(tuple(candidate_values))
+                if candidate in self._catalog_arm_ids:
+                    result.append(candidate)
+        return result
+
+    def one_parameter_neighbors(self, arm: Arm) -> List[Arm]:
+        if arm not in self._catalog_arm_ids:
+            raise ValueError(f"Arm is not in the CMAB arm catalog: {arm}")
+        values = self._arm_lookup[arm]
+        return [
+            candidate
+            for candidate, candidate_values in self._arms
+            if sum(a != b for a, b in zip(values, candidate_values)) == 1
+        ]
+
+    def filter_by_protocol_values(
+        self,
+        arms: Iterable[Arm],
+        timeout_values: Iterable[int],
+        cut_values: Iterable[int],
+    ) -> List[Arm]:
+        allowed_timeouts = {int(value) for value in timeout_values}
+        allowed_cuts = {int(value) for value in cut_values}
+        result = []
+        for arm in arms:
+            params = self.decode_arm(arm)
+            if (
+                params["fast_path_timeout"] in allowed_timeouts
+                and params["cut_condition_type"] in allowed_cuts
+            ):
+                result.append(arm)
+        return result
+
     def decode_arm(self, arm: Arm) -> dict[str, Any]:
         if arm not in self._arm_lookup:
             self._arm_lookup[arm] = self._decode_arm(arm)
         values = self._arm_lookup[arm]
         return dict(zip(self._arm_keys, values))
-

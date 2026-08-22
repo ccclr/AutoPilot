@@ -832,6 +832,9 @@ class CloudLabBench:
                 # every controller node and is not copied by Fabric.
                 resume_from = getattr(bench_parameters, 'cmab_resume_from', None)
             warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
+            enable_cmab_protocol_rules = bool(
+                getattr(bench_parameters, 'enable_cmab_protocol_rules', False)
+            )
             max_training_iterations = getattr(
                 bench_parameters, 'rl_max_training_iterations', 200
             )
@@ -874,6 +877,11 @@ class CloudLabBench:
                 f'{max_training_iterations if max_training_iterations is not None else "continuous"}'
             )
             Print.info(f'RL checkpoint enabled: {enable_checkpoint}')
+            if rl_algo == 'cmab':
+                Print.info(
+                    'CMAB protocol rules enabled: '
+                    f'{enable_cmab_protocol_rules}'
+                )
             if rl_algo == 'kernel_ucb':
                 Print.info(
                     'KernelUCB: '
@@ -993,6 +1001,9 @@ class CloudLabBench:
                         bench_parameters, 'dqn_hidden_dim', 64
                     ),
                     dqn_seed=getattr(bench_parameters, 'dqn_seed', 0),
+                    enable_cmab_protocol_rules=(
+                        enable_cmab_protocol_rules if rl_algo == 'cmab' else False
+                    ),
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(host, cmd, log_file)
