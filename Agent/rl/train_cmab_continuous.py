@@ -39,6 +39,17 @@ def main():
         default=5,
         help="Skip policy updates for the first N iterations (CMAB trainer warmup).",
     )
+    parser.add_argument(
+        "--enable-accelerator",
+        action="store_true",
+        help="Enable periodic latency probing to prune fast_path_timeout.",
+    )
+    parser.add_argument(
+        "--accelerator-period",
+        type=int,
+        default=100,
+        help="Epochs between master latency probes (apply 5 epochs later).",
+    )
     args = parser.parse_args()
 
     warmup_iterations = max(0, int(args.warmup_iterations))
@@ -76,6 +87,8 @@ def main():
         metrics_timeout=args.metrics_timeout,
         node_index=args.node_index,
         warmup_iterations=warmup_iterations,
+        enable_accelerator=args.enable_accelerator,
+        accelerator_period=args.accelerator_period,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

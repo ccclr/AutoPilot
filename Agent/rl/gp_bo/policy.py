@@ -236,7 +236,7 @@ class GPBOPolicy:
         Returns (timeout_ms, ucb, mean, std, arm).
         """
         lo = self.mixed_space.timeout_lo
-        hi = self.mixed_space.timeout_hi
+        hi = self.mixed_space.timeout_search_hi
         if hi <= lo:
             ucb, mean, std, arm = self._ucb_at_timeout(context, base, lo)
             return lo, ucb, mean, std, arm
@@ -349,7 +349,7 @@ class GPBOPolicy:
             len(self._y),
             self._timeout_grid_size,
             self.mixed_space.timeout_lo,
-            self.mixed_space.timeout_hi,
+            self.mixed_space.timeout_search_hi,
         )
         for rank, row in enumerate(results[:topk], start=1):
             logger.info(

@@ -71,6 +71,8 @@ class MixedActionSpace:
         self.timeout_hi = float(bounds[1])
         if self.timeout_hi < self.timeout_lo:
             raise ValueError("fast_path_timeout_ms_bounds must be (lo, hi) with lo <= hi")
+        # Search bound may be pruned; keep timeout_hi for feature normalization.
+        self.timeout_search_hi = self.timeout_hi
 
         discrete_sets = [
             self.codec.batch_size_values,
@@ -90,9 +92,17 @@ class MixedActionSpace:
     def list_placeholder_arms(self) -> List[Arm]:
         return list(self._placeholder_arms)
 
+    def set_timeout_search_hi(self, cap: float | None) -> None:
+        if cap is None:
+            self.timeout_search_hi = self.timeout_hi
+            return
+        self.timeout_search_hi = float(
+            np_clip(float(cap), self.timeout_lo, self.timeout_hi)
+        )
+
     def make_arm(self, base: Tuple[int, int, int, int], timeout_ms: float) -> Arm:
         b, h, c, k = base
-        timeout = float(np_clip(timeout_ms, self.timeout_lo, self.timeout_hi))
+        timeout = float(np_clip(timeout_ms, self.timeout_lo, self.timeout_search_hi))
         return encode_arm_values((b, h, c, timeout, k))
 
     def normalize_timeout(self, timeout_ms: float) -> float:
@@ -103,7 +113,8 @@ class MixedActionSpace:
 
     def denormalize_timeout(self, unit: float) -> float:
         u = float(np_clip(unit, 0.0, 1.0))
-        return self.timeout_lo + u * (self.timeout_hi - self.timeout_lo)
+        return self.timeout_lo + u * (self.timeout_search_hi - self.timeout_lo)
+
 
 def np_clip(x: float, lo: float, hi: float) -> float:
     return float(min(max(float(x), lo), hi))

@@ -58,6 +58,17 @@ def main():
     parser.add_argument("--metrics-timeout", type=int, default=300)
     parser.add_argument("--resume-from", type=str, default=None)
     parser.add_argument("--node-index", type=int, default=0)
+    parser.add_argument(
+        "--enable-accelerator",
+        action="store_true",
+        help="Enable periodic latency probing to prune fast_path_timeout.",
+    )
+    parser.add_argument(
+        "--accelerator-period",
+        type=int,
+        default=100,
+        help="Epochs between master latency probes (apply 5 epochs later).",
+    )
     args = parser.parse_args()
 
     beta = float(args.beta if args.kappa is None else args.kappa)
@@ -121,6 +132,8 @@ def main():
         node_index=args.node_index,
         warmup_iterations=0,
         checkpoint_prefix="kernel_ucb_checkpoint",
+        enable_accelerator=args.enable_accelerator,
+        accelerator_period=args.accelerator_period,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

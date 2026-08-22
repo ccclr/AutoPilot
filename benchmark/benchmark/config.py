@@ -287,6 +287,24 @@ class BenchParameters:
                 raise ConfigError('rl_warmup_iterations must be an integer >= 0')
             self.rl_warmup_iterations = warmup
 
+            enable_acc = json.get('enable_accelerator', False)
+            if enable_acc in (None, '', False, 0, '0', 'false', 'False'):
+                self.enable_accelerator = False
+            else:
+                self.enable_accelerator = bool(enable_acc)
+
+            # Probe every N consensus epochs on node 0; all nodes apply at detect_epoch+5.
+            acc_period = json.get('accelerator_period', 100)
+            if acc_period in (None, ''):
+                acc_period = 100
+            try:
+                acc_period = int(acc_period)
+            except (TypeError, ValueError) as e:
+                raise ConfigError('accelerator_period must be an integer >= 1') from e
+            if acc_period < 1:
+                raise ConfigError('accelerator_period must be an integer >= 1')
+            self.accelerator_period = acc_period
+
             self.simulate_partition = bool(json['simulate_partition'])
 
             self.partition_nodes = int(json['partition_nodes'])

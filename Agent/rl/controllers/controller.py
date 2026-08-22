@@ -104,6 +104,8 @@ class AutopilotController:
         resume_from: Optional[str] = None,
         rl_algo: str = "cmab",
         warmup_iterations: int = 5,
+        enable_accelerator: bool = False,
+        accelerator_period: int = 100,
     ):
         """
         Initialize controller
@@ -118,6 +120,8 @@ class AutopilotController:
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO / KernelUCB: collect N cold-start samples before first model fit.
+            enable_accelerator: periodically probe latency and prune timeout arms.
+            accelerator_period: idle epochs between master probes (apply 5 epochs later).
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -126,6 +130,8 @@ class AutopilotController:
         self.resume_from = resume_from
         self.rl_algo = (rl_algo or "cmab").lower()
         self.warmup_iterations = max(0, int(warmup_iterations))
+        self.enable_accelerator = bool(enable_accelerator)
+        self.accelerator_period = max(1, int(accelerator_period))
         if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
@@ -202,7 +208,10 @@ class AutopilotController:
                 "--parameters-file", str(self.parameters_file),
                 "--checkpoint-dir", str(checkpoint_dir),
                 "--warmup-iterations", str(self.warmup_iterations),
+                "--accelerator-period", str(self.accelerator_period),
             ]
+            if self.enable_accelerator:
+                cmd.append("--enable-accelerator")
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
 
@@ -328,6 +337,17 @@ def main():
             'GP-BO/KernelUCB collect N cold-start samples before fit'
         ),
     )
+    parser.add_argument(
+        '--enable-accelerator',
+        action='store_true',
+        help='Enable periodic latency probing to prune fast_path_timeout',
+    )
+    parser.add_argument(
+        '--accelerator-period',
+        type=int,
+        default=100,
+        help='Epochs between master latency probes (apply 5 epochs later)',
+    )
 
     args = parser.parse_args()
 
@@ -339,6 +359,7 @@ def main():
     print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
+    print(f"⚡ Accelerator: enabled={args.enable_accelerator} period={args.accelerator_period} epochs")
 
     # Logger will be initialized by AutopilotController
 
@@ -352,6 +373,8 @@ def main():
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
             warmup_iterations=args.warmup_iterations,
+            enable_accelerator=args.enable_accelerator,
+            accelerator_period=args.accelerator_period,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

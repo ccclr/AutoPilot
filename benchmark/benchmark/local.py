@@ -223,8 +223,11 @@ class LocalBench:
             resume_from = getattr(self.bench_parameters, 'cmab_resume_from', None)
             rl_algo = getattr(self.bench_parameters, 'rl_algo', 'cmab')
             warmup_iterations = getattr(self.bench_parameters, 'rl_warmup_iterations', 5)
+            enable_accelerator = getattr(self.bench_parameters, 'enable_accelerator', False)
+            accelerator_period = getattr(self.bench_parameters, 'accelerator_period', 100)
             Print.info(f'RL algo: {rl_algo}')
             Print.info(f'RL warmup iterations: {warmup_iterations}')
+            Print.info(f'RL accelerator: enabled={enable_accelerator} period={accelerator_period} epochs')
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
             for i, address in enumerate(primary_addresses):
@@ -237,6 +240,8 @@ class LocalBench:
                     resume_from=resume_from,
                     rl_algo=rl_algo,
                     warmup_iterations=warmup_iterations,
+                    enable_accelerator=enable_accelerator,
+                    accelerator_period=accelerator_period,
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
                 self._background_run(cmd, log_file)

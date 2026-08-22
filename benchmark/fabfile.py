@@ -29,7 +29,7 @@ import os
 from invoke import Responder
 
 @task
-def local(ctx, debug=False):
+def local(ctx, debug=False, enable_accelerator=False, accelerator_period=100):
     ''' Run benchmarks on localhost '''
     bench_params = {
         'faults': 0, 
@@ -44,6 +44,8 @@ def local(ctx, debug=False):
         # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
+        'enable_accelerator': bool(enable_accelerator),
+        'accelerator_period': int(accelerator_period),
 
         # Unused
         'simulate_partition': False,
@@ -165,7 +167,7 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=False, resume_from=None):
+def remote(ctx, debug=False):
     ''' Run benchmarks on CloudLab.
 
     Optional:
@@ -188,10 +190,12 @@ def remote(ctx, debug=False, resume_from=None):
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': "/users/clr0302/kernel_ucb_checkpoints/kernel_ucb_checkpoint_60.pkl",
+        'cmab_resume_from': None,
         # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
         'rl_algo': 'kernel_ucb',
         'rl_warmup_iterations': 5,
+        'enable_accelerator': True,
+        'accelerator_period': 100,
 
         # Unused
         'simulate_partition': False,
@@ -199,11 +203,11 @@ def remote(ctx, debug=False, resume_from=None):
         'partition_duration': 5,
         'partition_nodes': 2,
         
-        'enable_hotspot': False,
+        'enable_hotspot': True,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['apt']],
-        'hotspot_nodes': [2],
-        'hotspot_region_rates': [[0.5]], 
+        'hotspot_nodes': [[2]],
+        'hotspot_region_rates': [[[0.5, 0.9]]], 
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -219,7 +223,7 @@ def remote(ctx, debug=False, resume_from=None):
         'k': 4,
         'epoch_slots': 32,
         'window_size': 8,
-        'applied_begin': 28,
+        'applied_begin': 30,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
@@ -456,6 +460,107 @@ def _ssh_connect_settings():
         pkey = RSAKey.from_private_key_file(settings.key_path)
     return settings.username, pkey
 
+
+def _ping_rtt_ms(src_node, dst_ip, username, connect_kwargs, repeat=5, quiet=False):
+    """ICMP RTT (avg ms) from src_node to dst_ip via SSH + ping. Failures return nan."""
+    import re
+
+    if src_node["ip"] == dst_ip:
+        return 0.0
+    try:
+        conn = Connection(
+            host=src_node["ip"],
+            user=username,
+            connect_kwargs=connect_kwargs,
+        )
+        result = conn.run(
+            f"ping -c {repeat} -W 2 {dst_ip}",
+            hide=True,
+            warn=True,
+            timeout=max(30, repeat * 3),
+        )
+        conn.close()
+        m = re.search(
+            r'=\s*([\d\.]+)/([\d\.]+)/([\d\.]+)/',
+            result.stdout or '',
+        )
+        if not m:
+            if not quiet:
+                print(f"[Error] ping {src_node['ip']} → {dst_ip}: no rtt stats")
+            return np.nan
+        return float(m.group(2))
+    except Exception as e:
+        if not quiet:
+            print(f"[Error] ping {src_node['ip']} → {dst_ip}: {e}")
+        return np.nan
+
+
+def collect_latency_matrix(repeat=5, quiet=False):
+    """
+    Full node-to-node ICMP RTT matrix in milliseconds.
+
+    Shape (n, n): diagonal is 0.0, failed pings are nan.
+    """
+    username, pkey = _ssh_connect_settings()
+    connect_kwargs = {"pkey": pkey}
+    node_records = _get_nodes_from_fab_info()
+    if not node_records:
+        raise RuntimeError("Failed to read node info from fab/InstanceManager")
+
+    n = len(node_records)
+    matrix = np.full((n, n), np.nan, dtype=float)
+    for i, src_node in enumerate(node_records):
+        for j, dst_node in enumerate(node_records):
+            if i == j:
+                matrix[i, j] = 0.0
+                continue
+            matrix[i, j] = _ping_rtt_ms(
+                src_node,
+                dst_node["ip"],
+                username,
+                connect_kwargs,
+                repeat=repeat,
+                quiet=quiet,
+            )
+    return matrix
+
+
+def publish_accelerator_hint(hint: dict, dest_path: str) -> None:
+    """Write the accelerator hint locally, then copy it to every other node."""
+    import json
+    import shlex
+    from pathlib import Path
+
+    payload = json.dumps(hint, separators=(",", ":"))
+    dest = Path(dest_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    tmp.write_text(payload + "\n", encoding="utf-8")
+    tmp.replace(dest)
+
+    username, pkey = _ssh_connect_settings()
+    connect_kwargs = {"pkey": pkey}
+    nodes = _get_nodes_from_fab_info()
+    current = _detect_current_node_from_fab_info(nodes)
+    current_ip = current["ip"] if current else None
+    quoted = shlex.quote(payload)
+    quoted_path = shlex.quote(str(dest_path))
+    quoted_tmp = shlex.quote(str(dest_path) + ".tmp")
+    cmd = f"printf '%s\\n' {quoted} > {quoted_tmp} && mv {quoted_tmp} {quoted_path}"
+    for node in nodes:
+        if node["ip"] == current_ip:
+            continue
+        try:
+            conn = Connection(
+                host=node["ip"],
+                user=username,
+                connect_kwargs=connect_kwargs,
+            )
+            conn.run(cmd, hide=True, warn=True, timeout=20)
+            conn.close()
+        except Exception as e:
+            print(f"[Error] publish accelerator hint to {node.get('name', node['ip'])}: {e}")
+
 @task
 def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     """
@@ -528,33 +633,7 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
     print(f"Will measure latency to {len(target_nodes)} other nodes")
 
     def ping_latency(src_node, dst_ip, repeat=5):
-        """Measure ICMP RTT (avg ms) from src_node to dst_ip via SSH + ping."""
-        if src_node["ip"] == dst_ip:
-            return 0.0
-        try:
-            conn = Connection(
-                host=src_node["ip"],
-                user=username,
-                connect_kwargs=connect_kwargs,
-            )
-            result = conn.run(
-                f"ping -c {repeat} -W 2 {dst_ip}",
-                hide=True,
-                warn=True,
-                timeout=max(30, repeat * 3),
-            )
-            conn.close()
-            m = re.search(
-                r'=\s*([\d\.]+)/([\d\.]+)/([\d\.]+)/',
-                result.stdout or '',
-            )
-            if not m:
-                print(f"[Error] ping {src_node['ip']} → {dst_ip}: no rtt stats")
-                return np.nan
-            return float(m.group(2))  # avg RTT in ms
-        except Exception as e:
-            print(f"[Error] ping {src_node['ip']} → {dst_ip}: {e}")
-            return np.nan
+        return _ping_rtt_ms(src_node, dst_ip, username, connect_kwargs, repeat=repeat)
 
     if full_matrix:
         # Full matrix mode: measure all node pairs (fallback for compatibility)
@@ -576,19 +655,15 @@ def latency(ctx, cross_region=False, source_node=None, full_matrix=True):
         region_matrix = np.zeros((m, m))
         region_names = [r[0] for r in region_nodes]
 
-        n_total = len(all_nodes)
-        full_latency_matrix = np.zeros((n_total, n_total))
         node_names = [node["name"] for node in all_nodes]
 
         print("=== Measuring Full Node-to-Node Latency Matrix (ICMP ping) ===")
+        full_latency_matrix = collect_latency_matrix()
         for i, src_node in enumerate(all_nodes):
             for j, dst_node in enumerate(all_nodes):
                 if i == j:
                     continue
-
-                latency = ping_latency(src_node, dst_node["ip"])
-                full_latency_matrix[i][j] = latency
-
+                latency = full_latency_matrix[i][j]
                 if not np.isnan(latency):
                     print(f"  {src_node['name']} → {dst_node['name']}: {latency:.2f} ms")
                 else:

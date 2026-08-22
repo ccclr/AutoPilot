@@ -245,6 +245,8 @@ class CommandMaker:
         resume_from=None,
         rl_algo=None,
         warmup_iterations=None,
+        enable_accelerator=None,
+        accelerator_period=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -261,4 +263,8 @@ class CommandMaker:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:
             cmd += f' --warmup-iterations {int(warmup_iterations)}'
+        if enable_accelerator:
+            cmd += ' --enable-accelerator'
+        if accelerator_period is not None:
+            cmd += f' --accelerator-period {int(accelerator_period)}'
         return cmd

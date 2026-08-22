@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 import numpy as np
 
+from .accelerator import TrainingAccelerator
 from .arm_catalog import ArmCatalog
 from .context_builder import ContextBuilder
 
@@ -32,6 +33,9 @@ class CMABTrainer:
         node_index: Optional[int] = None,
         warmup_iterations: int = 5,
         checkpoint_prefix: str = "cmab_checkpoint",
+        accelerator: Optional[TrainingAccelerator] = None,
+        enable_accelerator: bool = False,
+        accelerator_period: int = 100,
     ):
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -51,6 +55,17 @@ class CMABTrainer:
         self.node_index = node_index
         self.warmup_iterations = max(0, warmup_iterations)
         self.checkpoint_prefix = checkpoint_prefix or "cmab_checkpoint"
+        if accelerator is not None:
+            self.accelerator = accelerator
+        elif enable_accelerator:
+            hint_path = self.parameters_file.parent / ".accelerator.json"
+            self.accelerator = TrainingAccelerator(
+                period=accelerator_period,
+                is_master=(self.node_index == 0),
+                hint_path=hint_path,
+            )
+        else:
+            self.accelerator = None
 
     def run(self, num_iterations: Optional[int], checkpoint_freq: int):
         logger.info("Initializing CMAB training loop...")
@@ -60,6 +75,16 @@ class CMABTrainer:
             "Warmup iterations (skip policy update): %s",
             self.warmup_iterations,
         )
+        if self.accelerator is not None:
+            logger.info(
+                "Accelerator enabled period=%d epochs apply_delay=%d master=%s hint=%s",
+                self.accelerator.period,
+                self.accelerator.apply_delay,
+                self.accelerator.is_master,
+                self.accelerator.hint_path,
+            )
+        else:
+            logger.info("Accelerator disabled")
         self._connect_param_socket()
         self.last_metrics_file = self._get_latest_metrics_file()
         if self.last_metrics_file is None:
@@ -73,133 +98,152 @@ class CMABTrainer:
         if last_arm is not None:
             logger.info("Bootstrapped initial arm from parameters file: %s", last_arm)
         action_by_epoch: dict[int, str] = {}
-        while self.training_active:
-            if num_iterations is not None and iteration >= num_iterations:
-                logger.info("Reached maximum iterations, stopping.")
-                break
+        try:
+            while self.training_active:
+                if num_iterations is not None and iteration >= num_iterations:
+                    logger.info("Reached maximum iterations, stopping.")
+                    break
 
-            logger.info("FEATURIZE_START metrics=%s", self.last_metrics_file.name)
-            context = self._build_context_from_global_state(self.last_metrics_file)
-            logger.info("FEATURIZE_DONE context_dim=%d", len(context))
-            current_epoch = self._get_epoch_from_metrics_file(self.last_metrics_file)
-            shared_seed_hex = self._compute_shared_seed_hex(self.last_metrics_file)
-            arm = self.policy.select_arm(context, shared_seed_hex=shared_seed_hex)
-            params = self.arm_catalog.decode_arm(arm)
-            self.arm_counts[arm] = self.arm_counts.get(arm, 0) + 1
-            if current_epoch is not None:
-                # Action selected from state_t is credited to reward from state_{t+1}.
-                action_by_epoch[current_epoch + 1] = arm
+                logger.info("FEATURIZE_START metrics=%s", self.last_metrics_file.name)
+                context = self._build_context_from_global_state(self.last_metrics_file)
+                logger.info("FEATURIZE_DONE context_dim=%d", len(context))
+                current_epoch = self._get_epoch_from_metrics_file(self.last_metrics_file)
+                if self.accelerator is not None:
+                    self.accelerator.on_epoch(current_epoch)
+                    self._apply_accelerator()
+                shared_seed_hex = self._compute_shared_seed_hex(self.last_metrics_file)
+                arm = self.policy.select_arm(context, shared_seed_hex=shared_seed_hex)
+                params = self.arm_catalog.decode_arm(arm)
+                self.arm_counts[arm] = self.arm_counts.get(arm, 0) + 1
+                if current_epoch is not None:
+                    # Action selected from state_t is credited to reward from state_{t+1}.
+                    action_by_epoch[current_epoch + 1] = arm
 
-            self._write_parameters_to_file(params, current_epoch)
-            logger.info("Applied params: %s", params)
+                self._write_parameters_to_file(params, current_epoch)
+                logger.info("Applied params: %s", params)
 
-            next_metrics = self._wait_for_new_metrics_file(self.last_metrics_file, timeout=self.metrics_timeout)
-            if next_metrics is None:
-                logger.warning("Timeout waiting for new metrics file, skipping update.")
-                continue
+                next_metrics = self._wait_for_new_metrics_file(self.last_metrics_file, timeout=self.metrics_timeout)
+                if next_metrics is None:
+                    logger.warning("Timeout waiting for new metrics file, skipping update.")
+                    continue
 
-            reward = self._extract_reward_from_global_state(next_metrics)
-            if reward > 15 or reward == 0:
-                logger.warning(
-                    "Dropping sample due to suspicious high reward (>10): reward=%.6f metrics=%s",
-                    reward,
-                    next_metrics.name,
-                )
-                # Move forward to avoid reprocessing the same metrics file.
-                self.last_metrics_file = next_metrics
-                continue
-            reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
-            if current_epoch is not None and reward_epoch is not None and reward_epoch > current_epoch + 1:
-                logger.warning(
-                    "Detected non-contiguous reward epoch: current=%s, reward=%s, backfilling credited arm for skipped epochs",
-                    current_epoch,
-                    reward_epoch,
-                )
-                # state_t selects action_{t+1}. action_{current+1} is already set above.
-                # For jumps, only backfill truly skipped epochs: [current+2, reward_epoch].
-                for epoch in range(current_epoch + 2, reward_epoch + 1):
-                    action_by_epoch.setdefault(epoch, arm)
-            # Credit priority:
-            # 1) abandon signal => previous epoch action
-            # 2) direct epoch mapping => action selected for reward_epoch
-            # 3) fallback => current selected arm
-            use_arm = action_by_epoch.get(reward_epoch) if reward_epoch is not None else None
-            if reward_epoch is not None:
-                abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
-                if abandon_signal.exists():
+                reward = self._extract_reward_from_global_state(next_metrics)
+                if reward > 15 or reward == 0:
                     logger.warning(
-                        "Detected abandon signal for epoch %s, using previous iteration action for update",
+                        "Dropping sample due to suspicious high reward (>10): reward=%.6f metrics=%s",
+                        reward,
+                        next_metrics.name,
+                    )
+                    # Move forward to avoid reprocessing the same metrics file.
+                    self.last_metrics_file = next_metrics
+                    continue
+                reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
+                if current_epoch is not None and reward_epoch is not None and reward_epoch > current_epoch + 1:
+                    logger.warning(
+                        "Detected non-contiguous reward epoch: current=%s, reward=%s, backfilling credited arm for skipped epochs",
+                        current_epoch,
                         reward_epoch,
                     )
-                    use_arm = last_arm
+                    # state_t selects action_{t+1}. action_{current+1} is already set above.
+                    # For jumps, only backfill truly skipped epochs: [current+2, reward_epoch].
+                    for epoch in range(current_epoch + 2, reward_epoch + 1):
+                        action_by_epoch.setdefault(epoch, arm)
+                # Credit priority:
+                # 1) abandon signal => previous epoch action
+                # 2) direct epoch mapping => action selected for reward_epoch
+                # 3) fallback => current selected arm
+                use_arm = action_by_epoch.get(reward_epoch) if reward_epoch is not None else None
+                if reward_epoch is not None:
+                    abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
+                    if abandon_signal.exists():
+                        logger.warning(
+                            "Detected abandon signal for epoch %s, using previous iteration action for update",
+                            reward_epoch,
+                        )
+                        use_arm = last_arm
 
-            if use_arm is None:
-                # Safety fallback when previous action is unavailable.
-                use_arm = arm
+                if use_arm is None:
+                    # Safety fallback when previous action is unavailable.
+                    use_arm = arm
 
-            in_warmup = iteration < self.warmup_iterations
-            if not in_warmup:
-                update_contexts = [context] if self.policy.uses_context else None
-                self.policy.update(
-                    [use_arm],
-                    [reward],
-                    update_contexts,
-                    shared_seed_hex=shared_seed_hex,
-                )
-            else:
+                in_warmup = iteration < self.warmup_iterations
+                if not in_warmup:
+                    update_contexts = [context] if self.policy.uses_context else None
+                    self.policy.update(
+                        [use_arm],
+                        [reward],
+                        update_contexts,
+                        shared_seed_hex=shared_seed_hex,
+                    )
+                else:
+                    logger.info(
+                        "Warmup iteration %s/%s: skip policy update (reward=%.6f, arm=%s)",
+                        iteration + 1,
+                        self.warmup_iterations,
+                        reward,
+                        use_arm,
+                    )
                 logger.info(
-                    "Warmup iteration %s/%s: skip policy update (reward=%.6f, arm=%s)",
+                    "Iteration %s : context=%s arm=%s params=%s",
                     iteration + 1,
-                    self.warmup_iterations,
-                    reward,
+                    context,
                     use_arm,
+                    self.arm_catalog.decode_arm(use_arm),
                 )
-            logger.info(
-                "Iteration %s : context=%s arm=%s params=%s",
-                iteration + 1,
-                context,
-                use_arm,
-                self.arm_catalog.decode_arm(use_arm),
-            )
 
-            iteration += 1
-            self.reward_history.append(reward)
+                iteration += 1
+                self.reward_history.append(reward)
 
-            if reward_epoch is not None:
-                abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
-                if not abandon_signal.exists():
-                    last_arm = use_arm
-            
-            avg_reward = sum(self.reward_history) / len(self.reward_history)
-            top_arm = max(self.arm_counts, key=self.arm_counts.get)
-            top_ratio = self.arm_counts[top_arm] / max(1, sum(self.arm_counts.values()))
-            logger.info(
-                "Iteration %s reward=%.6f avg_reward(20)=%.6f last_metrics=%s top_arm=%s top_ratio=%.2f",
-                iteration,
-                reward,
-                avg_reward,
-                next_metrics.name,
-                top_arm,
-                top_ratio,
-            )
-
-            if iteration % checkpoint_freq == 0:
-                checkpoint_path = (
-                    self.checkpoint_dir / f"{self.checkpoint_prefix}_{iteration}.pkl"
+                if reward_epoch is not None:
+                    abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
+                    if not abandon_signal.exists():
+                        last_arm = use_arm
+                
+                avg_reward = sum(self.reward_history) / len(self.reward_history)
+                top_arm = max(self.arm_counts, key=self.arm_counts.get)
+                top_ratio = self.arm_counts[top_arm] / max(1, sum(self.arm_counts.values()))
+                logger.info(
+                    "Iteration %s reward=%.6f avg_reward(20)=%.6f last_metrics=%s top_arm=%s top_ratio=%.2f",
+                    iteration,
+                    reward,
+                    avg_reward,
+                    next_metrics.name,
+                    top_arm,
+                    top_ratio,
                 )
-                self.policy.save(str(checkpoint_path))
-                logger.info("Saved checkpoint: %s", checkpoint_path)
 
-            self.last_metrics_file = next_metrics
+                if iteration % checkpoint_freq == 0:
+                    checkpoint_path = (
+                        self.checkpoint_dir / f"{self.checkpoint_prefix}_{iteration}.pkl"
+                    )
+                    self.policy.save(str(checkpoint_path))
+                    logger.info("Saved checkpoint: %s", checkpoint_path)
+
+                self.last_metrics_file = next_metrics
+        finally:
+            if self.accelerator is not None:
+                self.accelerator.stop()
 
     def stop(self):
         self.training_active = False
+        if self.accelerator is not None:
+            self.accelerator.stop()
         if self._param_socket is not None:
             try:
                 self._param_socket.close()
             except OSError:
                 pass
             self._param_socket = None
+
+    def _apply_accelerator(self) -> None:
+        if self.accelerator is None:
+            return
+        mixed = getattr(self.policy, "mixed_space", None)
+        if mixed is not None:
+            mixed.set_timeout_search_hi(self.accelerator.timeout_cap)
+            return
+        if hasattr(self.policy, "_arms"):
+            self.policy._arms = self.accelerator.filter_arms(self.arm_catalog.list_arms())
 
     def _get_latest_metrics_file(self) -> Optional[Path]:
         files = list(self.metrics_dir.glob("global_state_epoch_*.json"))
