@@ -5,8 +5,9 @@ Fast-path timeout
 -----------------
 After a leader has 2f+1 votes it still waits Δ to gather 3f+1.
   timeout ≥ Δ → fast path;  timeout < Δ → slow path.
-Timeouts strictly above max Δ share the same path decisions as the
-smallest covering timeout, so they can be dropped.
+The smallest catalog timeout strictly above Δ is the covering value
+(e.g. cap=110 → 200). Timeouts larger than that covering value can be
+dropped; smaller ones are kept so a feasible fast path remains.
 
 Only the master (node 0) probes the ICMP RTT full matrix.
 It publishes a hint {timeout_cap, detect_epoch, apply_epoch} to every node.
@@ -61,7 +62,7 @@ def max_fast_path_delta_ms(matrix: np.ndarray) -> Optional[float]:
             if j == i:
                 delays.append(0.0)
             elif np.isfinite(rtt):
-                delays.append(float(rtt) / 2.0)
+                delays.append(float(rtt))
         if len(delays) < need:
             continue
         delays.sort()
@@ -199,20 +200,26 @@ class TrainingAccelerator:
         except (OSError, json.JSONDecodeError):
             return None
 
-    def filter_arms(self, arms: Iterable[str]) -> list[str]:
-        """Drop catalog timeouts strictly larger than the smallest covering value."""
-        arms = list(arms)
+    def covering_timeout(self, timeouts: Iterable[float]) -> Optional[float]:
+        """Smallest action timeout strictly larger than cap, or None if none exists."""
         cap = self.timeout_cap
         if cap is None:
-            return arms
+            return None
+        covering = sorted(t for t in set(float(x) for x in timeouts) if t > cap)
+        return covering[0] if covering else None
+
+    def filter_arms(self, arms: Iterable[str]) -> list[str]:
+        """Keep timeouts up to the first catalog value > cap; drop anything larger."""
+        arms = list(arms)
         timeouts = [_arm_timeout(a) for a in arms]
-        covering = sorted(t for t in set(timeouts) if t >= cap)
-        limit = covering[0] if covering else cap
-        kept = [a for a, t in zip(arms, timeouts) if t <= 0 or t <= limit]
+        limit = self.covering_timeout(timeouts)
+        if limit is None:
+            return arms
+        kept = [a for a, t in zip(arms, timeouts) if t <= limit]
         if len(kept) < len(arms):
             logger.info(
                 "ACCELERATOR prune timeout_cap=%.1f limit=%.1f arms %d -> %d",
-                cap,
+                self.timeout_cap,
                 limit,
                 len(arms),
                 len(kept),

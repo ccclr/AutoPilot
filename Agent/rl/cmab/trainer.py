@@ -240,7 +240,9 @@ class CMABTrainer:
             return
         mixed = getattr(self.policy, "mixed_space", None)
         if mixed is not None:
-            mixed.set_timeout_search_hi(self.accelerator.timeout_cap)
+            vals = list(getattr(mixed.codec, "fast_path_timeout_ms_values", []))
+            vals.append(mixed.timeout_hi)
+            mixed.set_timeout_search_hi(self.accelerator.covering_timeout(vals))
             return
         if hasattr(self.policy, "_arms"):
             self.policy._arms = self.accelerator.filter_arms(self.arm_catalog.list_arms())

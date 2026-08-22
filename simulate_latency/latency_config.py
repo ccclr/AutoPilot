@@ -23,12 +23,12 @@ LATENCY = {
     "node2": {
         "node0": 40,
         "node1": 20,
-        "node3": 150,
+        "node3": 80,
     },
 
     "node3": {
         "node0": 60,
         "node1": 40,
-        "node2": 150,
+        "node2": 80,
     },
 }
