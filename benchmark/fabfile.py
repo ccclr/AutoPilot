@@ -182,10 +182,10 @@ def remote(ctx, debug=False):
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
         # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
-        'rl_algo': 'kernel_ucb',
+        'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
         'enable_accelerator': True,
-        'accelerator_period': 20,
+        'accelerator_period': 10,
 
         # Unused
         'simulate_partition': False,
@@ -193,7 +193,7 @@ def remote(ctx, debug=False):
         'partition_duration': 5,
         'partition_nodes': 2,
         
-        'enable_hotspot': True,
+        'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['apt']],
         'hotspot_nodes': [[2]],

@@ -324,7 +324,7 @@ class CloudLabBench:
         cmd = [
             # Fetch into origin/<branch>, not the checked-out local branch.
             f'(cd {repo_dir} && git fetch origin {branch})',
-            f'(cd {repo_dir} && git checkout -B {branch} origin/{branch})',
+            f'(cd {repo_dir} && git checkout -fB {branch} origin/{branch})',
             f'(cd {repo_dir} && git reset --hard origin/{branch})',
             f'export CARGO_HOME={self.home}/.cargo RUSTUP_HOME={self.home}/.rustup',
             f'source {self.home}/.cargo/env',

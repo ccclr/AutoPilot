@@ -74,10 +74,9 @@ def max_fast_path_delta_ms(matrix: np.ndarray) -> Optional[float]:
 def _fabfile():
     os.environ["PATH"] = os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")
     import site
-    user_site = site.getusersitepackages()
-    for p in (user_site, str(_BENCH_DIR)):
+    for p in (site.getusersitepackages(), "/usr/lib/python3/dist-packages", str(_BENCH_DIR)):
         if p and p not in sys.path:
-            sys.path.insert(0, p)
+            sys.path.append(p)
     import fabfile as mod
 
     return mod
