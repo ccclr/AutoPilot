@@ -141,7 +141,9 @@ class TrainingAccelerator:
         )
 
     def _probe(self, detect_epoch: int) -> None:
+        cwd = os.getcwd()
         try:
+            os.chdir(_BENCH_DIR)
             fab = _fabfile()
             matrix = fab.collect_latency_matrix(quiet=True)
             cap = max_fast_path_delta_ms(matrix)
@@ -157,6 +159,8 @@ class TrainingAccelerator:
             logger.info("ACCELERATOR published %s", hint)
         except Exception as e:
             logger.warning("ACCELERATOR probe failed: %s", e)
+        finally:
+            os.chdir(cwd)
 
     def _apply_hint(self, epoch: int) -> None:
         hint = self._read_hint()
