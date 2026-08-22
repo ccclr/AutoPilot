@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import threading
 from pathlib import Path
@@ -71,8 +72,12 @@ def max_fast_path_delta_ms(matrix: np.ndarray) -> Optional[float]:
 
 
 def _fabfile():
-    if str(_BENCH_DIR) not in sys.path:
-        sys.path.insert(0, str(_BENCH_DIR))
+    os.environ["PATH"] = os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")
+    import site
+    user_site = site.getusersitepackages()
+    for p in (user_site, str(_BENCH_DIR)):
+        if p and p not in sys.path:
+            sys.path.insert(0, p)
     import fabfile as mod
 
     return mod

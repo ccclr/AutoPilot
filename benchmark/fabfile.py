@@ -168,17 +168,7 @@ from fabric import task
 
 @task
 def remote(ctx, debug=False):
-    ''' Run benchmarks on CloudLab.
-
-    Optional:
-      fab remote --resume-from=/users/clr0302/checkpoints/cmab_checkpoint_10.pkl
-      AUTOPILOT_RESUME_FROM=/path/to/ckpt.pkl fab remote
-    '''
-    if resume_from in (None, '', 'None', 'null'):
-        resume_from = os.environ.get('AUTOPILOT_RESUME_FROM') or None
-    if resume_from in ('', 'None', 'null'):
-        resume_from = None
-
+    ''' Run benchmarks on CloudLab. '''
     bench_params = {
         'faults': 0,
         'nodes': [4],
@@ -195,7 +185,7 @@ def remote(ctx, debug=False):
         'rl_algo': 'kernel_ucb',
         'rl_warmup_iterations': 5,
         'enable_accelerator': True,
-        'accelerator_period': 100,
+        'accelerator_period': 20,
 
         # Unused
         'simulate_partition': False,
