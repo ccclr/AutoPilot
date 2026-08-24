@@ -344,7 +344,11 @@ class CommandMaker:
         dqn_gradient_clip=None,
         dqn_hidden_dim=None,
         dqn_seed=None,
+        dqn_checkpoint_load_mode=None,
         enable_cmab_protocol_rules=False,
+        cmab_transition_export_dir=None,
+        cmab_environment_label=None,
+        cmab_transition_run_id=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -363,6 +367,21 @@ class CommandMaker:
             cmd += f' --warmup-iterations {int(warmup_iterations)}'
         if enable_cmab_protocol_rules:
             cmd += ' --enable-cmab-protocol-rules'
+        if cmab_transition_export_dir:
+            cmd += (
+                ' --cmab-transition-export-dir '
+                f'{shlex.quote(str(cmab_transition_export_dir))}'
+            )
+        if cmab_environment_label:
+            cmd += (
+                ' --cmab-environment-label '
+                f'{shlex.quote(str(cmab_environment_label))}'
+            )
+        if cmab_transition_run_id:
+            cmd += (
+                ' --cmab-transition-run-id '
+                f'{shlex.quote(str(cmab_transition_run_id))}'
+            )
         if max_training_iterations is not None:
             cmd += f' --max-training-iterations {int(max_training_iterations)}'
         if kernel_ucb_alpha is not None:
@@ -423,4 +442,9 @@ class CommandMaker:
             cmd += f' --dqn-hidden-dim {int(dqn_hidden_dim)}'
         if dqn_seed is not None:
             cmd += f' --dqn-seed {int(dqn_seed)}'
+        if dqn_checkpoint_load_mode:
+            cmd += (
+                ' --dqn-checkpoint-load-mode '
+                f'{shlex.quote(str(dqn_checkpoint_load_mode))}'
+            )
         return cmd

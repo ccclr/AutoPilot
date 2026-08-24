@@ -230,7 +230,7 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
-        # Rule-guided CMAB run in the static A environment.
+        # Standard CMAB data-collection run in the static A environment.
         'duration': 1800,
         'runs': 1,
         # True: create a timestamped txt file for every run instead of
@@ -249,7 +249,13 @@ def remote(ctx, debug=False):
         'rl_max_training_iterations': None,
         # One switch for the 8-epoch structured start, protocol filters, and
         # incumbent/candidate confirmation used by rule-guided CMAB.
-        'enable_cmab_protocol_rules': True,
+        'enable_cmab_protocol_rules': False,
+        # Export strict, contiguous CMAB transitions on node0 for offline DQN.
+        # Each CloudLab run creates a separate directory under this /local root.
+        'enable_cmab_transition_export': True,
+        'cmab_transition_export_dir': '/local/autopilot_offline_data',
+        # Change this to B/C before collecting those environments.
+        'cmab_environment_label': 'A',
         # The checkpoint must have been created by the selected algorithm.
         'enable_checkpoint': False,
         'checkpoint_path': None,
@@ -263,21 +269,27 @@ def remote(ctx, debug=False):
         'dqn_action_port': 19100,
         'dqn_action_timeout': 2.0,
         'dqn_action_retries': 2,
-        'dqn_learning_rate': 1e-3,
+        # Online fine-tuning uses a lower LR than offline pretraining.
+        'dqn_learning_rate': 1e-4,
         'dqn_gamma': 0.90,
         'dqn_replay_capacity': 2000,
         # Keep the online learner responsive while Q(state, action) is being
         # evaluated; change one factor at a time in follow-up experiments.
         'dqn_batch_size': 16,
         'dqn_learning_starts': 16,
-        'dqn_target_update_interval': 10,
-        'dqn_epsilon_start': 1.0,
+        # Four gradient updates per environment transition; 40 gradient steps
+        # keeps the target-network cadence at roughly 10 online transitions.
+        'dqn_target_update_interval': 40,
+        'dqn_epsilon_start': 0.20,
         'dqn_epsilon_end': 0.05,
-        'dqn_epsilon_decay_steps': 100,
-        'dqn_gradient_updates': 1,
+        'dqn_epsilon_decay_steps': 120,
+        'dqn_gradient_updates': 4,
         'dqn_gradient_clip': 10.0,
         'dqn_hidden_dim': 64,
         'dqn_seed': 0,
+        # "finetune" loads pretrained weights but resets optimizer/replay/epsilon.
+        # Use "resume" only to continue the exact same interrupted DQN run.
+        'dqn_checkpoint_load_mode': 'finetune',
     }
 
     # 4. Initial protocol parameters. RL may change the action-controlled

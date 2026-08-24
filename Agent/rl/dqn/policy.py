@@ -199,14 +199,12 @@ class DQNPolicy:
         next_state: np.ndarray,
         done: bool = False,
     ) -> None:
-        if action < 0 or action >= self.action_count:
-            raise ValueError(f"action index out of range: {action}")
-        transition = Transition(
-            state=self._prepare_state(state),
-            action=int(action),
-            reward=float(reward),
-            next_state=self._prepare_state(next_state),
-            done=bool(done),
+        transition = self.prepare_transition(
+            state=state,
+            action=action,
+            reward=reward,
+            next_state=next_state,
+            done=done,
         )
         self.replay_buffer.append(transition)
         self.transitions_seen += 1
@@ -216,6 +214,27 @@ class DQNPolicy:
             len(self.replay_buffer),
             action,
             reward,
+        )
+
+    def prepare_transition(
+        self,
+        *,
+        state: np.ndarray | Iterable[float],
+        action: int,
+        reward: float,
+        next_state: np.ndarray | Iterable[float],
+        done: bool = False,
+    ) -> Transition:
+        """Validate and normalize one transition without inserting it in replay."""
+
+        if action < 0 or action >= self.action_count:
+            raise ValueError(f"action index out of range: {action}")
+        return Transition(
+            state=self._prepare_state(state),
+            action=int(action),
+            reward=float(reward),
+            next_state=self._prepare_state(next_state),
+            done=bool(done),
         )
 
     def train(self, updates: int = 1) -> list[float]:
@@ -240,6 +259,13 @@ class DQNPolicy:
         )
         buffer_list = list(self.replay_buffer)
         batch = [buffer_list[int(index)] for index in indices]
+        return self.train_batch(batch)
+
+    def train_batch(self, batch: Sequence[Transition]) -> float:
+        """Apply one update from an explicit batch, used by offline training."""
+
+        if not batch:
+            raise ValueError("DQN training batch cannot be empty")
 
         states = torch.from_numpy(np.stack([item.state for item in batch])).to(
             self.device
@@ -330,7 +356,11 @@ class DQNPolicy:
         )
         temporary.replace(destination)
 
-    def load(self, path: str | Path) -> None:
+    def load(self, path: str | Path, mode: str = "resume") -> None:
+        """Load a checkpoint for exact resume or weights-only fine-tuning."""
+
+        if mode not in ("resume", "finetune"):
+            raise ValueError("DQN checkpoint load mode must be 'resume' or 'finetune'")
         try:
             checkpoint = torch.load(
                 path, map_location=self.device, weights_only=False
@@ -361,8 +391,27 @@ class DQNPolicy:
             raise ValueError("DQN checkpoint action feature schema does not match")
 
         self.online_network.load_state_dict(checkpoint["online_network"])
+        if mode == "finetune":
+            # The constructor owns the new optimizer and learning rate.  Do not
+            # restore offline epsilon, replay, optimizer momentum, or RNG state.
+            self.target_network.load_state_dict(self.online_network.state_dict())
+            self.target_network.eval()
+            self.replay_buffer.clear()
+            self.decision_steps = 0
+            self.gradient_steps = 0
+            self.transitions_seen = 0
+            logger.info(
+                "DQN_CHECKPOINT_FINETUNE_LOADED path=%s lr=%s",
+                path,
+                self.learning_rate,
+            )
+            return
+
         self.target_network.load_state_dict(checkpoint["target_network"])
+        self.target_network.eval()
         self.optimizer.load_state_dict(checkpoint["optimizer"])
+        # ``optimizer.load_state_dict`` restores the checkpoint learning rate;
+        # this is intentional only for exact resume mode.
         self.replay_buffer.clear()
         for item in checkpoint.get("replay", []):
             self.replay_buffer.append(

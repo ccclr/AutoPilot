@@ -12,6 +12,7 @@ import numpy as np
 
 from cmab import ArmCatalog
 from controllers.action_transport import ActionBroadcaster
+from actions.state_encode import build_dqn_state
 from .policy import DQNPolicy
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class DQNTrainer:
         metrics_timeout: int = 300,
         gradient_updates_per_transition: int = 1,
         resume_from: str | None = None,
+        checkpoint_load_mode: str = "resume",
         checkpoint_prefix: str = "dqn_checkpoint",
     ) -> None:
         self.metrics_dir = Path(metrics_dir)
@@ -44,6 +46,11 @@ class DQNTrainer:
             gradient_updates_per_transition
         )
         self.resume_from = resume_from
+        if checkpoint_load_mode not in ("resume", "finetune"):
+            raise ValueError(
+                "DQN checkpoint load mode must be 'resume' or 'finetune'"
+            )
+        self.checkpoint_load_mode = checkpoint_load_mode
         self.checkpoint_prefix = checkpoint_prefix
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -79,7 +86,10 @@ class DQNTrainer:
                     state_dim=len(state), arms=self.arms, **self.policy_kwargs
                 )
                 if self.resume_from:
-                    self.policy.load(self.resume_from)
+                    self.policy.load(
+                        self.resume_from,
+                        mode=self.checkpoint_load_mode,
+                    )
 
             current_epoch = self._get_epoch(last_metrics)
             if current_epoch is None:
@@ -274,25 +284,7 @@ class DQNTrainer:
 
     def _build_state(self, path: Path) -> np.ndarray:
         data = self._load_json(path)
-        growth_rates = data.get("state_4_lane_vector", {}).get(
-            "growth_rates", {}
-        )
-        lane_values: list[float] = []
-        if isinstance(growth_rates, dict):
-            for _, value in sorted(growth_rates.items()):
-                try:
-                    lane_values.append(float(value))
-                except (TypeError, ValueError):
-                    continue
-        growth_norm = [
-            max(0.0, min(20.0, (value - 2.0) / (100.0 - 2.0) * 20.0))
-            for value in lane_values
-        ]
-        try:
-            fast_path_ratio = float(data.get("global_fast_path_ratio", 0.0))
-        except (TypeError, ValueError):
-            fast_path_ratio = 0.0
-        return np.asarray([*growth_norm, fast_path_ratio], dtype=np.float32)
+        return build_dqn_state(data)
 
     def _extract_reward(self, path: Path) -> float:
         data = self._load_json(path)

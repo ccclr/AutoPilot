@@ -345,6 +345,37 @@ class BenchParameters:
                 )
             self.enable_cmab_protocol_rules = enable_cmab_protocol_rules
 
+            enable_cmab_transition_export = json.get(
+                'enable_cmab_transition_export', False
+            )
+            if not isinstance(enable_cmab_transition_export, bool):
+                raise ConfigError(
+                    'enable_cmab_transition_export must be true or false'
+                )
+            self.enable_cmab_transition_export = enable_cmab_transition_export
+
+            transition_export_dir = json.get(
+                'cmab_transition_export_dir', '/local/autopilot_offline_data'
+            )
+            if (
+                not isinstance(transition_export_dir, str)
+                or not transition_export_dir.strip()
+            ):
+                raise ConfigError(
+                    'cmab_transition_export_dir must be a non-empty path'
+                )
+            self.cmab_transition_export_dir = transition_export_dir
+
+            environment_label = json.get('cmab_environment_label', 'unlabeled')
+            if (
+                not isinstance(environment_label, str)
+                or not environment_label.strip()
+            ):
+                raise ConfigError(
+                    'cmab_environment_label must be a non-empty string'
+                )
+            self.cmab_environment_label = environment_label.strip()
+
             # Maximum number of iterations processed by this RL trainer run.
             # None means that training continues until the experiment shuts it down.
             max_training_iterations = json.get('rl_max_training_iterations', 200)
@@ -490,6 +521,14 @@ class BenchParameters:
             )
             self.dqn_hidden_dim = positive_int('dqn_hidden_dim', 64)
             self.dqn_seed = non_negative_int('dqn_seed', 0)
+            checkpoint_load_mode = json.get(
+                'dqn_checkpoint_load_mode', 'resume'
+            )
+            if checkpoint_load_mode not in ('resume', 'finetune'):
+                raise ConfigError(
+                    'dqn_checkpoint_load_mode must be "resume" or "finetune"'
+                )
+            self.dqn_checkpoint_load_mode = checkpoint_load_mode
 
             enable_reward_change_monitor = json.get(
                 'enable_reward_change_monitor', True

@@ -14,6 +14,7 @@ from cmab import (
     CMABTrainer,
     ContextBuilder,
 )
+from offline_dataset import AsyncTransitionDatasetWriter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +55,9 @@ def main():
         action="store_true",
         help="Enable structured initialization and Autobahn-aware CMAB filters.",
     )
+    parser.add_argument("--transition-export-dir", type=str, default=None)
+    parser.add_argument("--environment-label", type=str, default="unlabeled")
+    parser.add_argument("--run-id", type=str, default=None)
     args = parser.parse_args()
 
     warmup_iterations = max(0, int(args.warmup_iterations))
@@ -83,6 +87,34 @@ def main():
         logger.info("Loaded CMAB policy from %s", args.resume_from)
 
     context_builder = ContextBuilder(mode=args.context_mode)
+    transition_writer = None
+    if args.transition_export_dir and args.node_index == 0:
+        try:
+            transition_writer = AsyncTransitionDatasetWriter(
+                root_dir=args.transition_export_dir,
+                environment=args.environment_label,
+                run_id=args.run_id or "",
+                arms=arms,
+                node_index=args.node_index,
+                metadata={
+                    "policy": args.policy,
+                    "seed": args.seed,
+                    "protocol_rules": args.enable_protocol_rules,
+                    "warmup_iterations": warmup_iterations,
+                },
+            )
+            logger.info(
+                "CMAB offline transitions: run=%s path=%s",
+                transition_writer.run_id,
+                transition_writer.transition_path,
+            )
+        except Exception:
+            # Dataset collection is observational. A missing/unwritable export
+            # directory must never prevent the original CMAB trainer from running.
+            logger.exception(
+                "CMAB_OFFLINE_TRANSITION_EXPORT_DISABLED during setup; "
+                "CMAB will continue normally"
+            )
     trainer = CMABTrainer(
         metrics_dir=args.metrics_dir,
         parameters_file=args.parameters_file,
@@ -94,6 +126,7 @@ def main():
         node_index=args.node_index,
         warmup_iterations=warmup_iterations,
         enable_protocol_rules=args.enable_protocol_rules,
+        transition_writer=transition_writer,
     )
 
     trainer.run(num_iterations=args.num_iterations, checkpoint_freq=args.checkpoint_freq)

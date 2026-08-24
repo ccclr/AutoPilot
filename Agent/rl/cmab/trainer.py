@@ -15,6 +15,8 @@ import numpy as np
 
 from .arm_catalog import ArmCatalog
 from .context_builder import ContextBuilder
+from actions.state_encode import build_dqn_state
+from offline_dataset import AsyncTransitionDatasetWriter
 from .protocol_rules import (
     CANDIDATE_CONFIRMATIONS,
     FPR_HIGH_THRESHOLD,
@@ -46,6 +48,7 @@ class CMABTrainer:
         warmup_iterations: int = 5,
         checkpoint_prefix: str = "cmab_checkpoint",
         enable_protocol_rules: bool = False,
+        transition_writer: Optional[AsyncTransitionDatasetWriter] = None,
     ):
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -68,6 +71,7 @@ class CMABTrainer:
             0 if self.enable_protocol_rules else max(0, warmup_iterations)
         )
         self.checkpoint_prefix = checkpoint_prefix or "cmab_checkpoint"
+        self.transition_writer = transition_writer
 
         # Rule-guided CMAB state.  These fields are unused when the feature is
         # disabled, leaving the original selection path unchanged.
@@ -179,7 +183,13 @@ class CMABTrainer:
                 logger.warning("Timeout waiting for new metrics file, skipping update.")
                 continue
 
-            reward = self._extract_reward_from_global_state(next_metrics)
+            # Load once for the original CMAB reward path and optional passive
+            # export. Export must not add another metrics-file read.
+            next_metrics_data = self._load_json_with_retry(next_metrics)
+            reward = self._extract_reward_from_data(
+                next_metrics_data,
+                next_metrics,
+            )
             reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
             if reward > 15 or reward == 0:
                 logger.warning(
@@ -205,9 +215,12 @@ class CMABTrainer:
             # 2) direct epoch mapping => action selected for reward_epoch
             # 3) fallback => current selected arm
             use_arm = action_by_epoch.get(reward_epoch) if reward_epoch is not None else None
+            abandon_signal = None
+            abandoned = False
             if reward_epoch is not None:
                 abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
                 if abandon_signal.exists():
+                    abandoned = True
                     logger.warning(
                         "Detected abandon signal for epoch %s, using previous iteration action for update",
                         reward_epoch,
@@ -279,15 +292,95 @@ class CMABTrainer:
                 logger.info("Saved checkpoint: %s", checkpoint_path)
 
             self.last_metrics_file = next_metrics
+            # Export is deliberately last and fail-open: all CMAB state,
+            # checkpoint, and protocol-rule work for this iteration is complete.
+            self._export_transition_best_effort(
+                current_epoch=current_epoch,
+                reward_epoch=reward_epoch,
+                context=context,
+                arm=use_arm,
+                reward=reward,
+                next_metrics_data=next_metrics_data,
+                abandoned=abandoned,
+            )
+
+        if self.transition_writer is not None:
+            self._close_transition_writer()
 
     def stop(self):
         self.training_active = False
+        if self.transition_writer is not None:
+            self._close_transition_writer()
         if self._param_socket is not None:
             try:
                 self._param_socket.close()
             except OSError:
                 pass
             self._param_socket = None
+
+    def _export_transition_best_effort(
+        self,
+        *,
+        current_epoch: Optional[int],
+        reward_epoch: Optional[int],
+        context: np.ndarray,
+        arm: str,
+        reward: float,
+        next_metrics_data: dict,
+        abandoned: bool,
+    ) -> None:
+        writer = self.transition_writer
+        if writer is None:
+            return
+        contiguous = (
+            current_epoch is not None
+            and reward_epoch == current_epoch + 1
+        )
+        valid_reward = np.isfinite(reward) and 0 < reward <= 15
+        if not contiguous or abandoned or not valid_reward:
+            logger.warning(
+                "CMAB_OFFLINE_TRANSITION_DROPPED source_epoch=%s "
+                "reward_epoch=%s contiguous=%s abandoned=%s reward=%s",
+                current_epoch,
+                reward_epoch,
+                contiguous,
+                abandoned,
+                reward,
+            )
+            return
+        try:
+            next_state = self._build_context_from_data(next_metrics_data)
+            writer.write(
+                source_epoch=current_epoch,
+                reward_epoch=reward_epoch,
+                state=context,
+                arm=arm,
+                reward=reward,
+                next_state=next_state,
+                done=False,
+                truncated=False,
+            )
+        except Exception:
+            # This also protects CMAB if a future writer implementation stops
+            # being asynchronous or validates records on the caller thread.
+            logger.exception(
+                "CMAB_OFFLINE_TRANSITION_EXPORT_DISABLED run=%s; "
+                "CMAB will continue normally",
+                getattr(writer, "run_id", "unknown"),
+            )
+            self._close_transition_writer()
+
+    def _close_transition_writer(self) -> None:
+        writer = self.transition_writer
+        self.transition_writer = None
+        if writer is None:
+            return
+        try:
+            writer.close()
+        except Exception:
+            logger.exception(
+                "Failed to close CMAB transition writer; CMAB will continue"
+            )
 
     def _get_latest_metrics_file(self) -> Optional[Path]:
         files = list(self.metrics_dir.glob("global_state_epoch_*.json"))
@@ -745,35 +838,10 @@ class CMABTrainer:
 
     def _build_context_from_global_state(self, metrics_path: Path) -> np.ndarray:
         data = self._load_json_with_retry(metrics_path)
-        growth_rates = (
-            data.get("state_4_lane_vector", {})
-            .get("growth_rates", {})
-        )
+        return self._build_context_from_data(data)
 
-        lane_values = []
-        if isinstance(growth_rates, dict):
-            for _, v in sorted(growth_rates.items()):
-                try:
-                    lane_values.append(float(v))
-                except (TypeError, ValueError):
-                    continue
-
-        # Keep the same normalization used by previous state parser.
-        growth_min = 2.0
-        growth_max = 100.0
-        growth_scale = 20.0
-        growth_norm = []
-        for value in lane_values:
-            normalized = (value - growth_min) / (growth_max - growth_min) * growth_scale
-            growth_norm.append(max(0.0, min(growth_scale, normalized)))
-
-        fast_path_ratio = data.get("global_fast_path_ratio", 0.0)
-        try:
-            fast_path_ratio = float(fast_path_ratio)
-        except (TypeError, ValueError):
-            fast_path_ratio = 0.0
-
-        dynamic_state = np.asarray([*growth_norm, fast_path_ratio], dtype=np.float32)
+    def _build_context_from_data(self, data: dict) -> np.ndarray:
+        dynamic_state = build_dqn_state(data)
         if self.context_builder.mode == "dynamic":
             return dynamic_state
         # Full mode historically concatenates context + dynamic; context is empty in current setup.
@@ -781,6 +849,9 @@ class CMABTrainer:
 
     def _extract_reward_from_global_state(self, metrics_path: Path) -> float:
         data = self._load_json_with_retry(metrics_path)
+        return self._extract_reward_from_data(data, metrics_path)
+
+    def _extract_reward_from_data(self, data: dict, metrics_path: Path) -> float:
         reward = data.get("global_reward")
         if reward is None:
             logger.warning("global_reward missing in %s, defaulting to 0.0", metrics_path)

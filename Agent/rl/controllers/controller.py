@@ -128,7 +128,11 @@ class AutopilotController:
         dqn_gradient_clip: float = 10.0,
         dqn_hidden_dim: int = 64,
         dqn_seed: int = 0,
+        dqn_checkpoint_load_mode: str = "resume",
         enable_cmab_protocol_rules: bool = False,
+        cmab_transition_export_dir: Optional[str] = None,
+        cmab_environment_label: str = "unlabeled",
+        cmab_transition_run_id: Optional[str] = None,
     ):
         """
         Initialize controller
@@ -182,7 +186,15 @@ class AutopilotController:
         self.dqn_gradient_clip = float(dqn_gradient_clip)
         self.dqn_hidden_dim = int(dqn_hidden_dim)
         self.dqn_seed = int(dqn_seed)
+        if dqn_checkpoint_load_mode not in ("resume", "finetune"):
+            raise ValueError(
+                "DQN checkpoint load mode must be 'resume' or 'finetune'"
+            )
+        self.dqn_checkpoint_load_mode = dqn_checkpoint_load_mode
         self.enable_cmab_protocol_rules = bool(enable_cmab_protocol_rules)
+        self.cmab_transition_export_dir = cmab_transition_export_dir
+        self.cmab_environment_label = cmab_environment_label or "unlabeled"
+        self.cmab_transition_run_id = cmab_transition_run_id
         if self.rl_algo == "dqn":
             if self.node_index != 0:
                 raise ValueError("Centralized DQN controller must run on node 0")
@@ -283,6 +295,17 @@ class AutopilotController:
                 )
             if self.rl_algo == "cmab" and self.enable_cmab_protocol_rules:
                 cmd.append("--enable-protocol-rules")
+            if self.rl_algo == "cmab" and self.cmab_transition_export_dir:
+                cmd.extend(
+                    [
+                        "--transition-export-dir",
+                        str(self.cmab_transition_export_dir),
+                        "--environment-label",
+                        str(self.cmab_environment_label),
+                    ]
+                )
+                if self.cmab_transition_run_id:
+                    cmd.extend(["--run-id", str(self.cmab_transition_run_id)])
             if self.rl_algo == "kernel_ucb":
                 cmd.extend(
                     [
@@ -316,6 +339,8 @@ class AutopilotController:
                         "--gradient-clip", str(self.dqn_gradient_clip),
                         "--hidden-dim", str(self.dqn_hidden_dim),
                         "--seed", str(self.dqn_seed),
+                        "--checkpoint-load-mode",
+                        str(self.dqn_checkpoint_load_mode),
                     ]
                 )
 
@@ -471,10 +496,18 @@ def main():
     parser.add_argument('--dqn-hidden-dim', type=int, default=64)
     parser.add_argument('--dqn-seed', type=int, default=0)
     parser.add_argument(
+        '--dqn-checkpoint-load-mode',
+        choices=['resume', 'finetune'],
+        default='resume',
+    )
+    parser.add_argument(
         '--enable-cmab-protocol-rules',
         action='store_true',
         help='Enable structured, protocol-aware CMAB exploration',
     )
+    parser.add_argument('--cmab-transition-export-dir', type=str, default=None)
+    parser.add_argument('--cmab-environment-label', type=str, default='unlabeled')
+    parser.add_argument('--cmab-transition-run-id', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -493,6 +526,9 @@ def main():
     )
     print(f"🔢 Max training iterations: {max_iterations}")
     print(f"🧭 CMAB protocol rules: {args.enable_cmab_protocol_rules}")
+    print(f"💾 CMAB transition export: {args.cmab_transition_export_dir}")
+    print(f"🌐 CMAB environment label: {args.cmab_environment_label}")
+    print(f"🧪 DQN checkpoint load mode: {args.dqn_checkpoint_load_mode}")
 
     # Logger will be initialized by AutopilotController
 
@@ -530,7 +566,11 @@ def main():
             dqn_gradient_clip=args.dqn_gradient_clip,
             dqn_hidden_dim=args.dqn_hidden_dim,
             dqn_seed=args.dqn_seed,
+            dqn_checkpoint_load_mode=args.dqn_checkpoint_load_mode,
             enable_cmab_protocol_rules=args.enable_cmab_protocol_rules,
+            cmab_transition_export_dir=args.cmab_transition_export_dir,
+            cmab_environment_label=args.cmab_environment_label,
+            cmab_transition_run_id=args.cmab_transition_run_id,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

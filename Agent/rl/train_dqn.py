@@ -21,6 +21,11 @@ def main() -> None:
     parser.add_argument("--parameters-file", required=True)
     parser.add_argument("--checkpoint-dir", default=str(home / "dqn_checkpoints"))
     parser.add_argument("--resume-from", default=None)
+    parser.add_argument(
+        "--checkpoint-load-mode",
+        choices=("resume", "finetune"),
+        default="resume",
+    )
     parser.add_argument("--node-index", type=int, default=0)
     parser.add_argument("--num-iterations", type=int, default=None)
     parser.add_argument("--checkpoint-freq", type=int, default=10)
@@ -91,6 +96,7 @@ def main() -> None:
         metrics_timeout=args.metrics_timeout,
         gradient_updates_per_transition=args.gradient_updates,
         resume_from=args.resume_from,
+        checkpoint_load_mode=args.checkpoint_load_mode,
     )
     trainer.run(args.num_iterations, args.checkpoint_freq)
 

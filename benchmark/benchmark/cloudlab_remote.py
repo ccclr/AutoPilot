@@ -617,7 +617,16 @@ class CloudLabBench:
 
         return committee
 
-    def _run_single(self, rate, committee, bench_parameters, node_parameters, debug=False, node_regions=None):
+    def _run_single(
+        self,
+        rate,
+        committee,
+        bench_parameters,
+        node_parameters,
+        debug=False,
+        node_regions=None,
+        experiment_run_id=None,
+    ):
         faults = bench_parameters.faults
         node_regions = node_regions or []
         region_based_asynchrony = node_parameters.json.get('simulate_asynchrony', False)
@@ -810,6 +819,18 @@ class CloudLabBench:
         if enable_rl:
             Print.info('Starting RL controllers...')
             rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
+            cmab_transition_export_dir = None
+            if (
+                rl_algo == 'cmab'
+                and getattr(
+                    bench_parameters, 'enable_cmab_transition_export', False
+                )
+            ):
+                cmab_transition_export_dir = getattr(
+                    bench_parameters,
+                    'cmab_transition_export_dir',
+                    '/local/autopilot_offline_data',
+                )
             enable_checkpoint = getattr(
                 bench_parameters,
                 'enable_checkpoint',
@@ -882,6 +903,17 @@ class CloudLabBench:
                     'CMAB protocol rules enabled: '
                     f'{enable_cmab_protocol_rules}'
                 )
+                Print.info(
+                    'CMAB offline transition export: '
+                    f'{bool(cmab_transition_export_dir)}'
+                )
+                if cmab_transition_export_dir:
+                    Print.info(
+                        'CMAB offline dataset: '
+                        f'root={cmab_transition_export_dir}, '
+                        f'environment={bench_parameters.cmab_environment_label}, '
+                        f'run_id={experiment_run_id}'
+                    )
             if rl_algo == 'kernel_ucb':
                 Print.info(
                     'KernelUCB: '
@@ -1001,8 +1033,23 @@ class CloudLabBench:
                         bench_parameters, 'dqn_hidden_dim', 64
                     ),
                     dqn_seed=getattr(bench_parameters, 'dqn_seed', 0),
+                    dqn_checkpoint_load_mode=getattr(
+                        bench_parameters, 'dqn_checkpoint_load_mode', 'resume'
+                    ),
                     enable_cmab_protocol_rules=(
                         enable_cmab_protocol_rules if rl_algo == 'cmab' else False
+                    ),
+                    cmab_transition_export_dir=cmab_transition_export_dir,
+                    cmab_environment_label=(
+                        getattr(
+                            bench_parameters,
+                            'cmab_environment_label',
+                            'unlabeled',
+                        )
+                        if cmab_transition_export_dir else None
+                    ),
+                    cmab_transition_run_id=(
+                        experiment_run_id if cmab_transition_export_dir else None
                     ),
                 )
                 log_file = join(PathMaker.logs_path(), f'controller-{i}.log')
@@ -1405,9 +1452,17 @@ class CloudLabBench:
                 for i in range(bench_parameters.runs):
                     Print.heading(f'Run {i+1}/{bench_parameters.runs}')
                     try:
+                        experiment_run_id = (
+                            f'{result_run_id}-nodes{n}-rate{r}-run{i + 1}'
+                        )
                         self._run_single(
-                            r, committee_copy, bench_parameters, node_parameters, debug,
-                            node_regions=run_node_regions
+                            r,
+                            committee_copy,
+                            bench_parameters,
+                            node_parameters,
+                            debug,
+                            node_regions=run_node_regions,
+                            experiment_run_id=experiment_run_id,
                         )
 
                         faults = bench_parameters.faults
