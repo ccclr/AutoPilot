@@ -1,6 +1,7 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
 import hashlib
 import os
+import re
 import shlex
 import shutil
 import socket
@@ -34,6 +35,12 @@ class FabricError(Exception):
 
 class ExecutionError(Exception):
     pass
+
+
+def _safe_dataset_component(value, fallback):
+    """Match the path sanitization used by the offline transition writer."""
+    text = re.sub(r'[^A-Za-z0-9._-]+', '-', str(value).strip()).strip('-.')
+    return text or fallback
 
 
 class CloudLabBench:
@@ -1172,6 +1179,96 @@ class CloudLabBench:
             sleep(ceil(duration / 20))
         self.kill(hosts=hosts, delete_logs=False)
 
+    def _archive_cmab_metrics(
+        self,
+        committee,
+        bench_parameters,
+        experiment_run_id,
+    ):
+        """Best-effort archive of node0 metrics beside exported transitions."""
+        archive_enabled = (
+            getattr(bench_parameters, 'enable_rl', False)
+            and getattr(bench_parameters, 'rl_algo', '') == 'cmab'
+            and getattr(
+                bench_parameters,
+                'enable_cmab_transition_export',
+                False,
+            )
+        )
+        if not archive_enabled:
+            return
+
+        if not experiment_run_id:
+            Print.warn('Skipping CMAB metrics archive: missing experiment run id')
+            return
+
+        primary_addresses = committee.primary_addresses(
+            bench_parameters.faults
+        )
+        if not primary_addresses:
+            Print.warn('Skipping CMAB metrics archive: node0 is unavailable')
+            return
+
+        export_root = str(bench_parameters.cmab_transition_export_dir).strip()
+        environment = _safe_dataset_component(
+            bench_parameters.cmab_environment_label,
+            'unlabeled',
+        )
+        run_id = _safe_dataset_component(experiment_run_id, 'run')
+        run_dir = os.path.join(export_root, environment, run_id)
+        source = os.path.join(self.home, 'metrics-0')
+        destination = os.path.join(run_dir, 'metrics-0')
+        temporary = os.path.join(run_dir, '.metrics-0.tmp')
+        transitions = os.path.join(run_dir, 'transitions.jsonl')
+
+        quoted_source = shlex.quote(source)
+        quoted_destination = shlex.quote(destination)
+        quoted_temporary = shlex.quote(temporary)
+        quoted_transitions = shlex.quote(transitions)
+        archive_cmd = (
+            'set -eu; '
+            f'test -d {quoted_source}; '
+            f'test -f {quoted_transitions}; '
+            f'test ! -e {quoted_destination}; '
+            f'test ! -e {quoted_temporary}; '
+            f'cp -a {quoted_source} {quoted_temporary}; '
+            f'file_count=$(find {quoted_temporary} -maxdepth 1 -type f | wc -l); '
+            'test "$file_count" -gt 0; '
+            f'mv {quoted_temporary} {quoted_destination}; '
+            'printf "%s" "$file_count"'
+        )
+
+        node0_host = Committee.ip(primary_addresses[0])
+        try:
+            connection = Connection(
+                node0_host,
+                user=self.settings.username,
+                connect_kwargs=self.connect,
+            )
+            result = connection.run(archive_cmd, hide=True, warn=True)
+        except Exception as error:
+            Print.warn(
+                'Failed to archive CMAB metrics for '
+                f'{experiment_run_id}: {error}'
+            )
+            return
+
+        if not result.ok:
+            detail = (result.stderr or result.stdout or '').strip()
+            suffix = f' ({detail})' if detail else ''
+            Print.warn(
+                'Failed to archive CMAB metrics for '
+                f'{experiment_run_id}: remote command exited '
+                f'{result.exited}{suffix}'
+            )
+            return
+
+        file_count = result.stdout.strip() or 'unknown number of'
+        Print.info(
+            'Archived CMAB metrics: '
+            f'{file_count} files -> {destination}'
+        )
+
     def _simulate_partition(self, bench_parameters, committee, faults):
         partition_ips = []
         for i, address in enumerate(committee.primary_addresses(faults)):
@@ -1463,6 +1560,14 @@ class CloudLabBench:
                             debug,
                             node_regions=run_node_regions,
                             experiment_run_id=experiment_run_id,
+                        )
+
+                        # Preserve node0 epoch metrics before the next run's
+                        # cleanup removes /local/metrics-*.
+                        self._archive_cmab_metrics(
+                            committee_copy,
+                            bench_parameters,
+                            experiment_run_id,
                         )
 
                         faults = bench_parameters.faults

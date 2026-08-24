@@ -251,7 +251,8 @@ def remote(ctx, debug=False):
         # incumbent/candidate confirmation used by rule-guided CMAB.
         'enable_cmab_protocol_rules': False,
         # Export strict, contiguous CMAB transitions on node0 for offline DQN.
-        # Each CloudLab run creates a separate directory under this /local root.
+        # Each CloudLab run creates a separate directory under this /local root
+        # and archives that run's node0 metrics into its metrics-0 subdirectory.
         'enable_cmab_transition_export': True,
         'cmab_transition_export_dir': '/local/autopilot_offline_data',
         # Change this to B/C before collecting those environments.
