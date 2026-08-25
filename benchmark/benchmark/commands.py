@@ -345,6 +345,7 @@ class CommandMaker:
         dqn_hidden_dim=None,
         dqn_seed=None,
         dqn_checkpoint_load_mode=None,
+        coverage_seed=None,
         enable_cmab_protocol_rules=False,
         cmab_transition_export_dir=None,
         cmab_environment_label=None,
@@ -447,4 +448,6 @@ class CommandMaker:
                 ' --dqn-checkpoint-load-mode '
                 f'{shlex.quote(str(dqn_checkpoint_load_mode))}'
             )
+        if coverage_seed is not None:
+            cmd += f' --coverage-seed {int(coverage_seed)}'
         return cmd

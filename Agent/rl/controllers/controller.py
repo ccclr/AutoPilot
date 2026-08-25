@@ -129,6 +129,7 @@ class AutopilotController:
         dqn_hidden_dim: int = 64,
         dqn_seed: int = 0,
         dqn_checkpoint_load_mode: str = "resume",
+        coverage_seed: int = 0,
         enable_cmab_protocol_rules: bool = False,
         cmab_transition_export_dir: Optional[str] = None,
         cmab_environment_label: str = "unlabeled",
@@ -143,8 +144,9 @@ class AutopilotController:
             node_index: node index for logging
             log_dir: log directory
             resume_from: optional policy checkpoint path
-            rl_algo: "cmab", "gp_bo", continuous-timeout "kernel_ucb", or
-                centralized node0 "dqn"
+            rl_algo: "cmab", "gp_bo", continuous-timeout "kernel_ucb",
+                centralized node0 "dqn", or centralized data-collection-only
+                "coverage_round_robin"
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO: collect N cold-start samples before first GP fit.
@@ -161,7 +163,13 @@ class AutopilotController:
         if max_training_iterations is not None and max_training_iterations <= 0:
             raise ValueError("max_training_iterations must be positive or None")
         self.max_training_iterations = max_training_iterations
-        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb", "dqn"):
+        if self.rl_algo not in (
+            "cmab",
+            "gp_bo",
+            "kernel_ucb",
+            "dqn",
+            "coverage_round_robin",
+        ):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         self.kernel_ucb_alpha = float(kernel_ucb_alpha)
         self.kernel_ucb_regularization = float(kernel_ucb_regularization)
@@ -186,6 +194,9 @@ class AutopilotController:
         self.dqn_gradient_clip = float(dqn_gradient_clip)
         self.dqn_hidden_dim = int(dqn_hidden_dim)
         self.dqn_seed = int(dqn_seed)
+        self.coverage_seed = int(coverage_seed)
+        if self.coverage_seed < 0:
+            raise ValueError("coverage_seed must be non-negative")
         if dqn_checkpoint_load_mode not in ("resume", "finetune"):
             raise ValueError(
                 "DQN checkpoint load mode must be 'resume' or 'finetune'"
@@ -195,11 +206,26 @@ class AutopilotController:
         self.cmab_transition_export_dir = cmab_transition_export_dir
         self.cmab_environment_label = cmab_environment_label or "unlabeled"
         self.cmab_transition_run_id = cmab_transition_run_id
-        if self.rl_algo == "dqn":
+        if self.rl_algo in ("dqn", "coverage_round_robin"):
             if self.node_index != 0:
-                raise ValueError("Centralized DQN controller must run on node 0")
+                raise ValueError(
+                    f"Centralized {self.rl_algo} controller must run on node 0"
+                )
             if not self.dqn_action_endpoints:
-                raise ValueError("DQN requires --dqn-action-endpoints")
+                raise ValueError(
+                    f"{self.rl_algo} requires --dqn-action-endpoints"
+                )
+        if self.rl_algo == "coverage_round_robin":
+            if self.resume_from:
+                raise ValueError(
+                    "coverage_round_robin does not load policy checkpoints"
+                )
+            if not self.cmab_transition_export_dir:
+                raise ValueError(
+                    "coverage_round_robin requires a transition export directory"
+                )
+            if not self.cmab_transition_run_id:
+                raise ValueError("coverage_round_robin requires a transition run id")
         # Agent/rl root (parent of controllers/)
         self._rl_root = Path(__file__).resolve().parent.parent
 
@@ -245,6 +271,8 @@ class AutopilotController:
             return "train_kernel_ucb.py"
         if self.rl_algo == "dqn":
             return "train_dqn.py"
+        if self.rl_algo == "coverage_round_robin":
+            return "train_coverage_round_robin.py"
         return "train_cmab_continuous.py"
 
     def _checkpoint_dir(self) -> Path:
@@ -263,6 +291,10 @@ class AutopilotController:
                 / "dqn_checkpoints"
                 / "state_action_q_v1"
             )
+        if self.rl_algo == "coverage_round_robin":
+            # The common trainer interface accepts this argument, but coverage
+            # collection has no model/checkpoint state and creates no folder.
+            return self.metrics_dir.parent
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
@@ -275,7 +307,8 @@ class AutopilotController:
         try:
             train_script = self._rl_root / self._training_script_name()
             checkpoint_dir = self._checkpoint_dir()
-            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            if self.rl_algo != "coverage_round_robin":
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
             # Start training script in continuous mode
             cmd = [
@@ -343,6 +376,21 @@ class AutopilotController:
                         str(self.dqn_checkpoint_load_mode),
                     ]
                 )
+            if self.rl_algo == "coverage_round_robin":
+                cmd.extend(
+                    [
+                        "--action-endpoints", str(self.dqn_action_endpoints),
+                        "--action-timeout", str(self.dqn_action_timeout),
+                        "--action-retries", str(self.dqn_action_retries),
+                        "--transition-export-dir",
+                        str(self.cmab_transition_export_dir),
+                        "--environment-label",
+                        str(self.cmab_environment_label),
+                        "--seed", str(self.coverage_seed),
+                    ]
+                )
+                if self.cmab_transition_run_id:
+                    cmd.extend(["--run-id", str(self.cmab_transition_run_id)])
 
             logger.info(f"Starting continuous training with command: {' '.join(cmd)}")
 
@@ -455,8 +503,10 @@ def main():
     parser.add_argument('--resume-from', type=str, default=None,
                        help='Resume RL policy from checkpoint path')
     parser.add_argument('--rl-algo', type=str, default='cmab',
-                       choices=['cmab', 'gp_bo', 'kernel_ucb', 'dqn'],
-                       help='RL algorithm: cmab, gp_bo, continuous kernel_ucb, or centralized dqn')
+                       choices=['cmab', 'gp_bo', 'kernel_ucb', 'dqn',
+                                'coverage_round_robin'],
+                       help=('RL algorithm: cmab, gp_bo, continuous kernel_ucb, '
+                             'centralized dqn, or coverage_round_robin'))
     parser.add_argument(
         '--warmup-iterations',
         type=int,
@@ -496,6 +546,12 @@ def main():
     parser.add_argument('--dqn-hidden-dim', type=int, default=64)
     parser.add_argument('--dqn-seed', type=int, default=0)
     parser.add_argument(
+        '--coverage-seed',
+        type=int,
+        default=0,
+        help='Seed for shuffled 72-action coverage cycles',
+    )
+    parser.add_argument(
         '--dqn-checkpoint-load-mode',
         choices=['resume', 'finetune'],
         default='resume',
@@ -529,6 +585,7 @@ def main():
     print(f"💾 CMAB transition export: {args.cmab_transition_export_dir}")
     print(f"🌐 CMAB environment label: {args.cmab_environment_label}")
     print(f"🧪 DQN checkpoint load mode: {args.dqn_checkpoint_load_mode}")
+    print(f"🎲 Coverage round-robin seed: {args.coverage_seed}")
 
     # Logger will be initialized by AutopilotController
 
@@ -567,6 +624,7 @@ def main():
             dqn_hidden_dim=args.dqn_hidden_dim,
             dqn_seed=args.dqn_seed,
             dqn_checkpoint_load_mode=args.dqn_checkpoint_load_mode,
+            coverage_seed=args.coverage_seed,
             enable_cmab_protocol_rules=args.enable_cmab_protocol_rules,
             cmab_transition_export_dir=args.cmab_transition_export_dir,
             cmab_environment_label=args.cmab_environment_label,

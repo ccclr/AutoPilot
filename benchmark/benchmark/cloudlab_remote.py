@@ -826,9 +826,13 @@ class CloudLabBench:
         if enable_rl:
             Print.info('Starting RL controllers...')
             rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
+            centralized_action_policy = rl_algo in (
+                'dqn',
+                'coverage_round_robin',
+            )
             cmab_transition_export_dir = None
             if (
-                rl_algo == 'cmab'
+                rl_algo in ('cmab', 'coverage_round_robin')
                 and getattr(
                     bench_parameters, 'enable_cmab_transition_export', False
                 )
@@ -848,7 +852,7 @@ class CloudLabBench:
             if enable_checkpoint and checkpoint_path:
                 checkpoint_targets = (
                     primary_addresses[:1]
-                    if rl_algo == 'dqn' else primary_addresses
+                    if centralized_action_policy else primary_addresses
                 )
                 resume_from = self._distribute_checkpoint(
                     checkpoint_path,
@@ -949,11 +953,24 @@ class CloudLabBench:
                     f'action_port={dqn_action_port}'
                 )
                 Print.info(f'DQN action endpoints: {dqn_endpoints}')
+            if rl_algo == 'coverage_round_robin':
+                Print.info(
+                    'Coverage collection: centralized node0, '
+                    '72 actions in seeded shuffled cycles, '
+                    f'seed={getattr(bench_parameters, "coverage_seed", 0)}'
+                )
+                Print.info(
+                    'Coverage offline dataset: '
+                    f'root={cmab_transition_export_dir}, '
+                    f'environment={bench_parameters.cmab_environment_label}, '
+                    f'run_id={experiment_run_id}'
+                )
+                Print.info(f'Coverage action endpoints: {dqn_endpoints}')
             if resume_from:
                 Print.info(f'RL resume-from: {resume_from}')
 
-            if rl_algo == 'dqn':
-                Print.info('Starting DQN action receivers on all primaries...')
+            if centralized_action_policy:
+                Print.info('Starting action receivers on all primaries...')
                 receiver_addresses = []
                 for i, address in enumerate(primary_addresses):
                     host = Committee.ip(address)
@@ -972,12 +989,13 @@ class CloudLabBench:
                 self._wait_for_tcp_listeners(
                     receiver_addresses,
                     timeout_sec=30,
-                    label='DQN action receivers',
+                    label='centralized action receivers',
                 )
-                Print.info('All DQN action receivers are ready.')
+                Print.info('All centralized action receivers are ready.')
 
             controller_addresses = (
-                primary_addresses[:1] if rl_algo == 'dqn' else primary_addresses
+                primary_addresses[:1]
+                if centralized_action_policy else primary_addresses
             )
             for i, address in enumerate(controller_addresses):
                 host = Committee.ip(address)
@@ -1001,7 +1019,7 @@ class CloudLabBench:
                     ),
                     kernel_ucb_replay_window=kernel_ucb_replay_window,
                     dqn_action_endpoints=(
-                        dqn_endpoints if rl_algo == 'dqn' else None
+                        dqn_endpoints if centralized_action_policy else None
                     ),
                     dqn_action_timeout=dqn_action_timeout,
                     dqn_action_retries=dqn_action_retries,
@@ -1042,6 +1060,11 @@ class CloudLabBench:
                     dqn_seed=getattr(bench_parameters, 'dqn_seed', 0),
                     dqn_checkpoint_load_mode=getattr(
                         bench_parameters, 'dqn_checkpoint_load_mode', 'resume'
+                    ),
+                    coverage_seed=(
+                        getattr(bench_parameters, 'coverage_seed', 0)
+                        if rl_algo == 'coverage_round_robin'
+                        else None
                     ),
                     enable_cmab_protocol_rules=(
                         enable_cmab_protocol_rules if rl_algo == 'cmab' else False
@@ -1188,7 +1211,8 @@ class CloudLabBench:
         """Best-effort archive of node0 metrics beside exported transitions."""
         archive_enabled = (
             getattr(bench_parameters, 'enable_rl', False)
-            and getattr(bench_parameters, 'rl_algo', '') == 'cmab'
+            and getattr(bench_parameters, 'rl_algo', '')
+            in ('cmab', 'coverage_round_robin')
             and getattr(
                 bench_parameters,
                 'enable_cmab_transition_export',
@@ -1197,16 +1221,26 @@ class CloudLabBench:
         )
         if not archive_enabled:
             return
+        archive_label = (
+            'CMAB'
+            if getattr(bench_parameters, 'rl_algo', '') == 'cmab'
+            else 'coverage'
+        )
 
         if not experiment_run_id:
-            Print.warn('Skipping CMAB metrics archive: missing experiment run id')
+            Print.warn(
+                f'Skipping {archive_label} metrics archive: '
+                'missing experiment run id'
+            )
             return
 
         primary_addresses = committee.primary_addresses(
             bench_parameters.faults
         )
         if not primary_addresses:
-            Print.warn('Skipping CMAB metrics archive: node0 is unavailable')
+            Print.warn(
+                f'Skipping {archive_label} metrics archive: node0 is unavailable'
+            )
             return
 
         export_root = str(bench_parameters.cmab_transition_export_dir).strip()
@@ -1248,7 +1282,7 @@ class CloudLabBench:
             result = connection.run(archive_cmd, hide=True, warn=True)
         except Exception as error:
             Print.warn(
-                'Failed to archive CMAB metrics for '
+                f'Failed to archive {archive_label} metrics for '
                 f'{experiment_run_id}: {error}'
             )
             return
@@ -1257,7 +1291,7 @@ class CloudLabBench:
             detail = (result.stderr or result.stdout or '').strip()
             suffix = f' ({detail})' if detail else ''
             Print.warn(
-                'Failed to archive CMAB metrics for '
+                f'Failed to archive {archive_label} metrics for '
                 f'{experiment_run_id}: remote command exited '
                 f'{result.exited}{suffix}'
             )
@@ -1265,7 +1299,7 @@ class CloudLabBench:
 
         file_count = result.stdout.strip() or 'unknown number of'
         Print.info(
-            'Archived CMAB metrics: '
+            f'Archived {archive_label} metrics: '
             f'{file_count} files -> {destination}'
         )
 

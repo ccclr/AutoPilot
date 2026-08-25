@@ -43,7 +43,8 @@ def local(ctx, debug=False):
         'enable_rl': True,
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab", "gp_bo", continuous-timeout "kernel_ucb", or "dqn".
+        # RL algorithm: "cmab", "gp_bo", continuous-timeout "kernel_ucb",
+        # centralized "dqn", or data-only "coverage_round_robin".
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
         # Maximum training iterations in this run. None = train until experiment ends.
@@ -242,7 +243,8 @@ def remote(ctx, debug=False):
     rl_config = {
         # False runs the protocol with fixed parameters and no RL controller.
         'enable_rl': True,
-        # Supported values: "cmab", "gp_bo", "kernel_ucb", and "dqn".
+        # Supported values: "cmab", "gp_bo", "kernel_ucb", "dqn", and
+        # "coverage_round_robin". The default remains CMAB.
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 0,
         # None means training continues until the experiment ends.
@@ -250,7 +252,8 @@ def remote(ctx, debug=False):
         # One switch for the 8-epoch structured start, protocol filters, and
         # incumbent/candidate confirmation used by rule-guided CMAB.
         'enable_cmab_protocol_rules': False,
-        # Export strict, contiguous CMAB transitions on node0 for offline DQN.
+        # Export strict, contiguous CMAB/coverage transitions on node0 for
+        # offline DQN.
         # Each CloudLab run creates a separate directory under this /local root
         # and archives that run's node0 metrics into its metrics-0 subdirectory.
         'enable_cmab_transition_export': True,
@@ -264,7 +267,8 @@ def remote(ctx, debug=False):
         'cmab_resume_from': None,
     }
 
-    # 3. DQN settings (used only when rl_algo="dqn").
+    # 3. Centralized action transport and DQN settings. The action port,
+    # timeout, and retries are also used by coverage_round_robin.
     dqn_config = {
         'dqn_training_node': 0,
         'dqn_action_port': 19100,
@@ -291,6 +295,14 @@ def remote(ctx, debug=False):
         # "finetune" loads pretrained weights but resets optimizer/replay/epsilon.
         # Use "resume" only to continue the exact same interrupted DQN run.
         'dqn_checkpoint_load_mode': 'finetune',
+    }
+
+    # 3b. Coverage collection (used only for
+    # rl_algo="coverage_round_robin"). Every cycle is a seeded random
+    # permutation of all 72 actions. The schedule advances only after a valid,
+    # contiguous transition is saved, so a failed action application is retried.
+    coverage_config = {
+        'coverage_seed': 0,
     }
 
     # 4. Initial protocol parameters. RL may change the action-controlled
@@ -392,6 +404,7 @@ def remote(ctx, debug=False):
         **run_config,
         **rl_config,
         **dqn_config,
+        **coverage_config,
         **monitor_config,
         **kernel_ucb_config,
         **partition_config,

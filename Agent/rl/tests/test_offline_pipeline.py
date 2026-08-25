@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import time
@@ -101,6 +102,17 @@ class OfflineDatasetTests(unittest.TestCase):
             writer.close()
             records = load_transition_files([path])
             self.assertEqual(len(records), 1)
+
+    def test_existing_cmab_writer_keeps_cmab_behavior_policy_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._write_run(Path(directory), "A", "cmab-run")
+            record = json.loads(path.read_text(encoding="utf-8").strip())
+            manifest = json.loads(
+                (path.parent / "meta.json").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(record["behavior_policy"], "cmab")
+            self.assertEqual(manifest["behavior_policy"], "cmab")
 
     def test_async_writer_failure_does_not_propagate_to_cmab_caller(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

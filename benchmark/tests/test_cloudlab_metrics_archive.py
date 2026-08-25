@@ -101,6 +101,22 @@ class MetricsArchiveTests(TestCase):
 
         connection.assert_not_called()
 
+    @patch('benchmark.cloudlab_remote.Connection', _SuccessfulConnection)
+    def test_coverage_collection_archives_its_metrics(self):
+        self.bench._archive_cmab_metrics(
+            _Committee(),
+            _bench_parameters(rl_algo='coverage_round_robin'),
+            'coverage-run1',
+        )
+
+        run_call = next(
+            call for call in _SuccessfulConnection.calls if call[0] == 'run'
+        )
+        self.assertIn(
+            '/local/autopilot_offline_data/A/coverage-run1/metrics-0',
+            run_call[1],
+        )
+
     @patch('benchmark.cloudlab_remote.Print.info')
     @patch('benchmark.cloudlab_remote.Connection', _LocalConnection)
     def test_copies_metrics_atomically(self, info):

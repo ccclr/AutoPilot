@@ -49,7 +49,7 @@ class OfflineTransition:
 
 
 class TransitionDatasetWriter:
-    """Crash-resistant, append-only writer for one CMAB experiment run."""
+    """Crash-resistant, append-only writer for one behavior-policy run."""
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class TransitionDatasetWriter:
         run_id: str,
         arms: Sequence[str],
         node_index: int,
+        behavior_policy: str = "cmab",
         metadata: dict | None = None,
     ) -> None:
         if node_index != 0:
@@ -67,6 +68,9 @@ class TransitionDatasetWriter:
             raise ValueError("transition export requires a non-empty action catalog")
 
         self.environment = str(environment).strip() or "unlabeled"
+        self.behavior_policy = str(behavior_policy).strip()
+        if not self.behavior_policy:
+            raise ValueError("behavior policy must be a non-empty string")
         requested_run_id = str(run_id).strip() or datetime.now(timezone.utc).strftime(
             "%Y%m%d-%H%M%S-%f"
         )
@@ -102,7 +106,7 @@ class TransitionDatasetWriter:
         manifest = {
             "schema_version": TRANSITION_SCHEMA_VERSION,
             "created_at_utc": _utc_now(),
-            "behavior_policy": "cmab",
+            "behavior_policy": self.behavior_policy,
             "environment": self.environment,
             "run_id": self.run_id,
             "node_index": node_index,
@@ -154,7 +158,7 @@ class TransitionDatasetWriter:
 
         record = {
             "schema_version": TRANSITION_SCHEMA_VERSION,
-            "behavior_policy": "cmab",
+            "behavior_policy": self.behavior_policy,
             "environment": self.environment,
             "run_id": self.run_id,
             "source_epoch": int(source_epoch),
@@ -198,6 +202,7 @@ class AsyncTransitionDatasetWriter:
         run_id: str,
         arms: Sequence[str],
         node_index: int,
+        behavior_policy: str = "cmab",
         metadata: dict | None = None,
         queue_capacity: int = 256,
     ) -> None:
@@ -209,6 +214,7 @@ class AsyncTransitionDatasetWriter:
             run_id=run_id,
             arms=arms,
             node_index=node_index,
+            behavior_policy=behavior_policy,
             metadata=metadata,
         )
         self.environment = self._writer.environment

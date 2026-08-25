@@ -313,15 +313,27 @@ class BenchParameters:
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
                 rl_algo = 'cmab'
-            supported_algorithms = ('cmab', 'gp_bo', 'kernel_ucb', 'dqn')
+            supported_algorithms = (
+                'cmab',
+                'gp_bo',
+                'kernel_ucb',
+                'dqn',
+                'coverage_round_robin',
+            )
             if (
                 not isinstance(rl_algo, str)
                 or rl_algo.lower() not in supported_algorithms
             ):
                 raise ConfigError(
-                    'rl_algo must be "cmab", "gp_bo", "kernel_ucb", or "dqn"'
+                    'rl_algo must be "cmab", "gp_bo", "kernel_ucb", '
+                    '"dqn", or "coverage_round_robin"'
                 )
             self.rl_algo = rl_algo.lower()
+            if self.rl_algo == 'coverage_round_robin' and self.enable_checkpoint:
+                raise ConfigError(
+                    'coverage_round_robin is a data collector and cannot load '
+                    'a policy checkpoint; set enable_checkpoint=false'
+                )
 
             # Unified warmup passed to controller/trainer:
             # cmab -> skip N policy updates; gp_bo -> N cold-start samples before GP fit.
@@ -375,6 +387,15 @@ class BenchParameters:
                     'cmab_environment_label must be a non-empty string'
                 )
             self.cmab_environment_label = environment_label.strip()
+            if (
+                self.enable_rl
+                and self.rl_algo == 'coverage_round_robin'
+                and not self.enable_cmab_transition_export
+            ):
+                raise ConfigError(
+                    'coverage_round_robin requires '
+                    'enable_cmab_transition_export=true'
+                )
 
             # Maximum number of iterations processed by this RL trainer run.
             # None means that training continues until the experiment shuts it down.
@@ -521,6 +542,7 @@ class BenchParameters:
             )
             self.dqn_hidden_dim = positive_int('dqn_hidden_dim', 64)
             self.dqn_seed = non_negative_int('dqn_seed', 0)
+            self.coverage_seed = non_negative_int('coverage_seed', 0)
             checkpoint_load_mode = json.get(
                 'dqn_checkpoint_load_mode', 'resume'
             )
