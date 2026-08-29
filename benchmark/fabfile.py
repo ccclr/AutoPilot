@@ -185,7 +185,7 @@ def remote(ctx, debug=False):
         'rl_algo': 'cmab',
         'rl_warmup_iterations': 5,
         'enable_accelerator': True,
-        'accelerator_period': 10,
+        'accelerator_period': 20,
 
         # Unused
         'simulate_partition': False,

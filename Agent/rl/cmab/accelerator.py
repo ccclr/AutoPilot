@@ -47,7 +47,11 @@ def _arm_timeout(arm: str) -> float:
 
 
 def max_fast_path_delta_ms(matrix: np.ndarray) -> Optional[float]:
-    """Δ_i = last vote - (2f+1)-th vote; return max_i Δ_i in milliseconds."""
+    """Δ_i = last vote - (2f+1)-th vote, using ICMP RTT (ms).
+
+    A vote arrives after propose-out + vote-back, so the delay is the ping RTT,
+    not RTT/2.
+    """
     matrix = np.asarray(matrix, dtype=float)
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1] or matrix.shape[0] < 2:
         return None

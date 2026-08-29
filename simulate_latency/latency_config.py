@@ -17,18 +17,18 @@ LATENCY = {
     "node1": {
         "node0": 100,
         "node2": 20,
-        "node3": 40,
+        "node3": 80,
     },
 
     "node2": {
-        "node0": 40,
+        "node0": 80,
         "node1": 20,
-        "node3": 80,
+        "node3": 100,
     },
 
     "node3": {
         "node0": 60,
         "node1": 40,
-        "node2": 80,
+        "node2": 100,
     },
 }
