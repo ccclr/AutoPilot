@@ -30,7 +30,7 @@ sudo tc filter add dev $IFACE \
 sudo tc qdisc add dev $IFACE \
     parent 1:2 \
     handle 20: \
-    netem delay 40ms
+    netem delay 80ms
 
 
 sudo tc filter add dev $IFACE \

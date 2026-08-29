@@ -242,7 +242,21 @@ class CMABTrainer:
         if mixed is not None:
             vals = list(getattr(mixed.codec, "fast_path_timeout_ms_values", []))
             vals.append(mixed.timeout_hi)
-            mixed.set_timeout_search_hi(self.accelerator.covering_timeout(vals))
+            prev_hi = mixed.timeout_search_hi
+            limit = self.accelerator.covering_timeout(vals)
+            mixed.set_timeout_search_hi(limit)
+            if limit is not None and mixed.timeout_search_hi != prev_hi:
+                codec = mixed.codec
+                logger.info(
+                    "ACCELERATOR remaining dims %s",
+                    {
+                        "batch_size": list(codec.batch_size_values),
+                        "header_size": list(codec.header_size_values),
+                        "cut_condition_type": list(codec.cut_condition_type_values),
+                        "fast_path_timeout": [mixed.timeout_lo, mixed.timeout_search_hi],
+                        "k": list(codec.parallel_proposals_values),
+                    },
+                )
             return
         if hasattr(self.policy, "_arms"):
             self.policy._arms = self.accelerator.filter_arms(self.arm_catalog.list_arms())

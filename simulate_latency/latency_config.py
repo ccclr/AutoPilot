@@ -10,7 +10,7 @@ NODES = {
 LATENCY = {
     "node0": {
         "node1": 100,
-        "node2": 40,
+        "node2": 75,
         "node3": 60,
     },
 
@@ -21,14 +21,14 @@ LATENCY = {
     },
 
     "node2": {
-        "node0": 80,
+        "node0": 75,
         "node1": 20,
         "node3": 100,
     },
 
     "node3": {
         "node0": 60,
-        "node1": 40,
+        "node1": 80,
         "node2": 100,
     },
 }

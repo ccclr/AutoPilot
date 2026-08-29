@@ -35,6 +35,24 @@ HINT_NAME = ".accelerator.json"
 APPLY_DELAY_EPOCHS = 5
 
 
+def _remaining_dims(arms: Iterable[str]) -> dict[str, list[str]]:
+    dims: dict[str, set[str]] = {}
+    for arm in arms:
+        for part in arm.split(","):
+            key, _, value = part.partition("=")
+            key, value = key.strip(), value.strip()
+            if key:
+                dims.setdefault(key, set()).add(value)
+
+    def _sort_key(v: str):
+        try:
+            return (0, float(v))
+        except ValueError:
+            return (1, v)
+
+    return {k: sorted(vs, key=_sort_key) for k, vs in dims.items()}
+
+
 def _arm_timeout(arm: str) -> float:
     for part in arm.split(","):
         key, _, value = part.partition("=")
@@ -222,10 +240,11 @@ class TrainingAccelerator:
         kept = [a for a, t in zip(arms, timeouts) if t <= limit]
         if len(kept) < len(arms):
             logger.info(
-                "ACCELERATOR prune timeout_cap=%.1f limit=%.1f arms %d -> %d",
+                "ACCELERATOR prune timeout_cap=%.1f limit=%.1f arms %d -> %d remaining=%s",
                 self.timeout_cap,
                 limit,
                 len(arms),
                 len(kept),
+                _remaining_dims(kept),
             )
         return kept
