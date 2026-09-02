@@ -329,6 +329,17 @@ class BenchParameters:
                     '"dqn", or "coverage_round_robin"'
                 )
             self.rl_algo = rl_algo.lower()
+            cmab_action_encoding = json.get(
+                'cmab_action_encoding', 'numeric'
+            )
+            if (
+                not isinstance(cmab_action_encoding, str)
+                or cmab_action_encoding.lower() not in ('numeric', 'one_hot')
+            ):
+                raise ConfigError(
+                    'cmab_action_encoding must be "numeric" or "one_hot"'
+                )
+            self.cmab_action_encoding = cmab_action_encoding.lower()
             if self.rl_algo == 'coverage_round_robin' and self.enable_checkpoint:
                 raise ConfigError(
                     'coverage_round_robin is a data collector and cannot load '

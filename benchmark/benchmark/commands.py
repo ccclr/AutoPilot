@@ -350,6 +350,7 @@ class CommandMaker:
         cmab_transition_export_dir=None,
         cmab_environment_label=None,
         cmab_transition_run_id=None,
+        cmab_action_encoding=None,
     ):
         """Generate command to run controller as a background process"""
         controller_path = f'{CommandMaker.HOME}/{repo_name}/Agent/rl/controllers/controller.py'
@@ -362,6 +363,11 @@ class CommandMaker:
         cmd += f' --parameters-file {parameters_file}'
         if rl_algo:
             cmd += f' --rl-algo {rl_algo}'
+        if cmab_action_encoding:
+            cmd += (
+                ' --cmab-action-encoding '
+                f'{shlex.quote(str(cmab_action_encoding))}'
+            )
         if resume_from:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:

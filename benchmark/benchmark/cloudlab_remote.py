@@ -826,6 +826,9 @@ class CloudLabBench:
         if enable_rl:
             Print.info('Starting RL controllers...')
             rl_algo = getattr(bench_parameters, 'rl_algo', 'cmab')
+            cmab_action_encoding = getattr(
+                bench_parameters, 'cmab_action_encoding', 'numeric'
+            )
             centralized_action_policy = rl_algo in (
                 'dqn',
                 'coverage_round_robin',
@@ -903,6 +906,10 @@ class CloudLabBench:
                 for i, address in enumerate(primary_addresses)
             )
             Print.info(f'RL algo: {rl_algo}')
+            if rl_algo == 'cmab':
+                Print.info(
+                    f'CMAB action encoding: {cmab_action_encoding}'
+                )
             Print.info(f'RL warmup iterations: {warmup_iterations}')
             Print.info(
                 'RL max training iterations: '
@@ -1007,6 +1014,9 @@ class CloudLabBench:
                     python_bin=CommandMaker.agent_venv_python(),
                     resume_from=resume_from,
                     rl_algo=rl_algo,
+                    cmab_action_encoding=(
+                        cmab_action_encoding if rl_algo == 'cmab' else None
+                    ),
                     warmup_iterations=warmup_iterations,
                     max_training_iterations=max_training_iterations,
                     kernel_ucb_alpha=kernel_ucb_alpha,

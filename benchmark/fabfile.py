@@ -46,6 +46,9 @@ def local(ctx, debug=False):
         # RL algorithm: "cmab", "gp_bo", continuous-timeout "kernel_ucb",
         # centralized "dqn", or data-only "coverage_round_robin".
         'rl_algo': 'cmab',
+        # CMAB-RF only: "numeric" preserves the legacy raw parameter vector;
+        # "one_hot" assigns one indicator feature to each complete arm.
+        'cmab_action_encoding': 'numeric',
         'rl_warmup_iterations': 5,
         # Maximum training iterations in this run. None = train until experiment ends.
         'rl_max_training_iterations': 200,
@@ -246,6 +249,9 @@ def remote(ctx, debug=False):
         # Supported values: "cmab", "gp_bo", "kernel_ucb", "dqn", and
         # "coverage_round_robin". The default remains CMAB.
         'rl_algo': 'cmab',
+        # CMAB-RF action representation. Use "numeric" for the existing
+        # baseline and "one_hot" for the encoding comparison experiment.
+        'cmab_action_encoding': 'one_hot',
         'rl_warmup_iterations': 0,
         # None means training continues until the experiment ends.
         'rl_max_training_iterations': None,

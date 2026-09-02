@@ -37,6 +37,16 @@ def main():
     )
     parser.add_argument("--checkpoint-freq", type=int, default=10)
     parser.add_argument("--policy", type=str, default="rf_ts", choices=["rf_ts", "random", "default"])
+    parser.add_argument(
+        "--action-encoding",
+        type=str,
+        default="numeric",
+        choices=CMABPolicy.ACTION_ENCODINGS,
+        help=(
+            "CMAB-RF action features: legacy raw numeric parameters or one "
+            "indicator per complete arm"
+        ),
+    )
     parser.add_argument("--context-mode", type=str, default="dynamic", choices=["dynamic", "full"])
     parser.add_argument("--epsilon", type=float, default=0, help="Epsilon-greedy exploration rate")
     parser.add_argument("--max-arms", type=int, default=None)
@@ -63,12 +73,14 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d max_iterations=%s protocol_rules=%s",
+        "metrics_dir=%s parameters_file=%s warmup=%d max_iterations=%s "
+        "protocol_rules=%s action_encoding=%s",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
         args.num_iterations,
         args.enable_protocol_rules,
+        args.action_encoding,
     )
 
     codec = ActionCodec(policy=args.policy)
@@ -81,6 +93,7 @@ def main():
         policy_name=args.policy,
         epsilon=args.epsilon,
         random_state=args.seed,
+        action_encoding=args.action_encoding,
     )
     if args.resume_from:
         policy.load(args.resume_from)
@@ -101,6 +114,7 @@ def main():
                     "seed": args.seed,
                     "protocol_rules": args.enable_protocol_rules,
                     "warmup_iterations": warmup_iterations,
+                    "action_encoding": args.action_encoding,
                 },
             )
             logger.info(
