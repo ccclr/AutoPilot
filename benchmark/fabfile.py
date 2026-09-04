@@ -49,6 +49,9 @@ def local(ctx, debug=False):
         # CMAB-RF only: "numeric" preserves the legacy raw parameter vector;
         # "one_hot" assigns one indicator feature to each complete arm.
         'cmab_action_encoding': 'numeric',
+        # Controls the CMAB random forest random_state. It does not replace
+        # the per-epoch shared seed derived from the live protocol state.
+        'cmab_seed': 0,
         'rl_warmup_iterations': 5,
         # Maximum training iterations in this run. None = train until experiment ends.
         'rl_max_training_iterations': 200,
@@ -252,6 +255,9 @@ def remote(ctx, debug=False):
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
         'cmab_action_encoding': 'one_hot',
+        # Keep this value paired between numeric and one_hot runs. Change it
+        # between repetitions to measure sensitivity to RF initialization.
+        'cmab_seed': 0,
         'rl_warmup_iterations': 0,
         # None means training continues until the experiment ends.
         'rl_max_training_iterations': None,

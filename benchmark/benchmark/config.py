@@ -552,6 +552,7 @@ class BenchParameters:
                 'dqn_gradient_clip', 10.0
             )
             self.dqn_hidden_dim = positive_int('dqn_hidden_dim', 64)
+            self.cmab_seed = non_negative_int('cmab_seed', 0)
             self.dqn_seed = non_negative_int('dqn_seed', 0)
             self.coverage_seed = non_negative_int('coverage_seed', 0)
             checkpoint_load_mode = json.get(

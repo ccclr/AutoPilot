@@ -130,6 +130,7 @@ class AutopilotController:
         dqn_seed: int = 0,
         dqn_checkpoint_load_mode: str = "resume",
         coverage_seed: int = 0,
+        cmab_seed: int = 0,
         enable_cmab_protocol_rules: bool = False,
         cmab_transition_export_dir: Optional[str] = None,
         cmab_environment_label: str = "unlabeled",
@@ -203,6 +204,9 @@ class AutopilotController:
         self.coverage_seed = int(coverage_seed)
         if self.coverage_seed < 0:
             raise ValueError("coverage_seed must be non-negative")
+        self.cmab_seed = int(cmab_seed)
+        if self.cmab_seed < 0:
+            raise ValueError("cmab_seed must be non-negative")
         if dqn_checkpoint_load_mode not in ("resume", "finetune"):
             raise ValueError(
                 "DQN checkpoint load mode must be 'resume' or 'finetune'"
@@ -340,7 +344,10 @@ class AutopilotController:
                 cmd.append("--enable-protocol-rules")
             if self.rl_algo == "cmab":
                 cmd.extend(
-                    ["--action-encoding", str(self.cmab_action_encoding)]
+                    [
+                        "--action-encoding", str(self.cmab_action_encoding),
+                        "--seed", str(self.cmab_seed),
+                    ]
                 )
             if self.rl_algo == "cmab" and self.cmab_transition_export_dir:
                 cmd.extend(
@@ -528,6 +535,12 @@ def main():
         help='CMAB-RF action feature encoding (default: numeric)',
     )
     parser.add_argument(
+        '--cmab-seed',
+        type=int,
+        default=0,
+        help='CMAB random-forest seed (default: 0)',
+    )
+    parser.add_argument(
         '--warmup-iterations',
         type=int,
         default=5,
@@ -594,6 +607,7 @@ def main():
     print(f"📝 Log dir: {args.log_dir}")
     print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔢 CMAB action encoding: {args.cmab_action_encoding}")
+    print(f"🎲 CMAB random-forest seed: {args.cmab_seed}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
     max_iterations = (
@@ -620,6 +634,7 @@ def main():
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
             cmab_action_encoding=args.cmab_action_encoding,
+            cmab_seed=args.cmab_seed,
             warmup_iterations=args.warmup_iterations,
             max_training_iterations=args.max_training_iterations,
             kernel_ucb_alpha=args.kernel_ucb_alpha,

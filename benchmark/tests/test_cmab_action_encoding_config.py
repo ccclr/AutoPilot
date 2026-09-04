@@ -32,6 +32,7 @@ class CMABActionEncodingConfigTests(TestCase):
         parameters = BenchParameters(_parameters())
 
         self.assertEqual(parameters.cmab_action_encoding, 'numeric')
+        self.assertEqual(parameters.cmab_seed, 0)
 
     def test_accepts_one_hot(self):
         parameters = BenchParameters(
@@ -44,6 +45,15 @@ class CMABActionEncodingConfigTests(TestCase):
         with self.assertRaisesRegex(ConfigError, 'cmab_action_encoding'):
             BenchParameters(_parameters(cmab_action_encoding='ordinal'))
 
+    def test_accepts_non_negative_cmab_seed(self):
+        parameters = BenchParameters(_parameters(cmab_seed=17))
+
+        self.assertEqual(parameters.cmab_seed, 17)
+
+    def test_rejects_negative_cmab_seed(self):
+        with self.assertRaisesRegex(ConfigError, 'cmab_seed'):
+            BenchParameters(_parameters(cmab_seed=-1))
+
     def test_controller_command_contains_encoding(self):
         command = CommandMaker.run_controller(
             node_index=0,
@@ -52,9 +62,11 @@ class CMABActionEncodingConfigTests(TestCase):
             parameters_file='/local/.parameters.json',
             rl_algo='cmab',
             cmab_action_encoding='one_hot',
+            cmab_seed=17,
         )
 
         self.assertIn('--cmab-action-encoding one_hot', command)
+        self.assertIn('--cmab-seed 17', command)
 
 
 if __name__ == '__main__':

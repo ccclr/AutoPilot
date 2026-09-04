@@ -346,6 +346,7 @@ class CommandMaker:
         dqn_seed=None,
         dqn_checkpoint_load_mode=None,
         coverage_seed=None,
+        cmab_seed=None,
         enable_cmab_protocol_rules=False,
         cmab_transition_export_dir=None,
         cmab_environment_label=None,
@@ -368,6 +369,8 @@ class CommandMaker:
                 ' --cmab-action-encoding '
                 f'{shlex.quote(str(cmab_action_encoding))}'
             )
+        if cmab_seed is not None:
+            cmd += f' --cmab-seed {int(cmab_seed)}'
         if resume_from:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:

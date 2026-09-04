@@ -251,6 +251,10 @@ class LocalBench:
                     cmab_action_encoding=(
                         cmab_action_encoding if rl_algo == 'cmab' else None
                     ),
+                    cmab_seed=(
+                        getattr(self.bench_parameters, 'cmab_seed', 0)
+                        if rl_algo == 'cmab' else None
+                    ),
                     warmup_iterations=warmup_iterations,
                     max_training_iterations=max_training_iterations,
                     kernel_ucb_alpha=getattr(
