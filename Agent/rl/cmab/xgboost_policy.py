@@ -1,10 +1,10 @@
-"""XGBoost contextual bandit with the same bootstrap Thompson sampling as CMAB-RF.
+"""XGBoost contextual bandit aligned with CMAB-RF selection.
 
-CMAB-RF approximates a posterior by bagging trees on bootstrapped replay data,
-then uses the ensemble at decision time. XGBoost trees are additive, so a single
-booster is not a bag. We therefore keep a committee of XGB models, each fit on
-its own bootstrap of the replay window — the same external bootstrap already
-used in CMABPolicy.update — and Thompson-sample one committee member.
+CMAB-RF: each tree is a bootstrap draw; at decision time take the mean
+prediction across trees and pick the max-mean arm. XGBoost trees are
+additive, so a single booster is not a bag. We keep a committee of XGB
+models, each fit on its own bootstrap of the replay window, then average
+those predictions and argmax — same rule as RF.
 """
 
 from __future__ import annotations
@@ -115,39 +115,38 @@ class XGBoostPolicy(CMABPolicy):
 
         mean = all_preds.mean(axis=0)
         std = all_preds.std(axis=0)
-        member_idx = self._shared_rng_index(
-            len(self._committee), shared_seed_hex, "ts_bootstrap"
-        )
-        sampled = all_preds[member_idx]
 
         def _fmt_list(values, idxs):
             return "[" + ", ".join(f"{values[i]:.6f}" for i in idxs) + "]"
 
         logger.info("================================================================================")
-        logger.info("SELECT ARM - XGBoost bootstrap Thompson sampling")
+        logger.info("SELECT ARM - XGBoost ensemble mean (same rule as CMAB-RF)")
         logger.info("Context: %s", np.asarray(context))
         logger.info("Bootstrap committee size: %d", len(self._committee))
-        logger.info("TS sampled member: %d", member_idx)
         logger.info("")
         logger.info("Prediction statistics across bootstrap models:")
         top5_mean_idx = np.argsort(mean)[::-1][:5]
         logger.info("  Mean predictions (top 5 arms): %s", _fmt_list(mean, top5_mean_idx))
         logger.info("  Std predictions (top 5 arms): %s", _fmt_list(std, top5_mean_idx))
         logger.info("")
-        logger.info("Top 5 arms by sampled bootstrap draw:")
-        top5_ts_idx = np.argsort(sampled)[::-1][:5]
-        for rank, idx in enumerate(top5_ts_idx, start=1):
+        logger.info("Top 5 arms by mean prediction:")
+        for rank, idx in enumerate(top5_mean_idx, start=1):
             logger.info(
-                "  #%d: arm=%s, sampled=%.6f, mean=%.6f, std=%.6f",
+                "  #%d: arm=%s, mean=%.6f, std=%.6f",
                 rank,
                 self._arms[idx],
-                sampled[idx],
                 mean[idx],
                 std[idx],
             )
 
-        max_pred = float(sampled.max())
-        max_indices = np.flatnonzero(np.isclose(sampled, max_pred))
+        max_pred = float(mean.max())
+        max_indices = np.flatnonzero(np.isclose(mean, max_pred))
+        if len(max_indices) > 1:
+            logger.info(
+                "  Found %d arms with same max mean prediction (%.6f), deterministically selecting one...",
+                len(max_indices),
+                max_pred,
+            )
         if len(max_indices) > 1 and shared_seed_hex:
             tie_pick_pos = self._shared_rng_index(len(max_indices), shared_seed_hex, "tie_break")
             chosen_idx = int(max_indices[tie_pick_pos])
@@ -156,17 +155,11 @@ class XGBoostPolicy(CMABPolicy):
         chosen = self._arms[chosen_idx]
 
         topk = min(self._monitor_topk, len(self._arms))
-        topk_idx = np.argsort(sampled)[::-1][:topk]
+        topk_idx = np.argsort(mean)[::-1][:topk]
         topk_arms = [self._arms[i] for i in topk_idx]
-        topk_mean = [float(sampled[i]) for i in topk_idx]
-        logger.info("MONITOR_TOP_ARMS k=%d arms=%s sampled=%s", topk, topk_arms, topk_mean)
-        logger.info(
-            "✓ SELECTED ARM: %s (ts_member=%d, sampled=%.6f, ensemble_mean=%.6f)",
-            chosen,
-            member_idx,
-            max_pred,
-            float(mean[chosen_idx]),
-        )
+        topk_mean = [float(mean[i]) for i in topk_idx]
+        logger.info("MONITOR_TOP_ARMS k=%d arms=%s means=%s", topk, topk_arms, topk_mean)
+        logger.info("✓ SELECTED ARM: %s (mean_prediction=%.6f)", chosen, max_pred)
         logger.info("================================================================================")
         return chosen
 
