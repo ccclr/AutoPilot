@@ -103,6 +103,7 @@ class AutopilotController:
         log_dir: Optional[str] = None,
         resume_from: Optional[str] = None,
         rl_algo: str = "cmab",
+        cmab_action_encoding: str = "numeric",
         warmup_iterations: int = 5,
         enable_accelerator: bool = False,
         accelerator_period: int = 100,
@@ -129,6 +130,11 @@ class AutopilotController:
         self.log_dir = Path(log_dir)
         self.resume_from = resume_from
         self.rl_algo = (rl_algo or "cmab").lower()
+        self.cmab_action_encoding = str(cmab_action_encoding).lower()
+        if self.cmab_action_encoding not in ("numeric", "one_hot"):
+            raise ValueError(
+                "CMAB action encoding must be 'numeric' or 'one_hot'"
+            )
         self.warmup_iterations = max(0, int(warmup_iterations))
         self.enable_accelerator = bool(enable_accelerator)
         self.accelerator_period = max(1, int(accelerator_period))
@@ -185,6 +191,10 @@ class AutopilotController:
             return home / "gp_bo_checkpoints"
         if self.rl_algo == "kernel_ucb":
             return home / "kernel_ucb_checkpoints"
+        if self.rl_algo == "cmab" and self.cmab_action_encoding == "one_hot":
+            # Keep experimental one-hot checkpoints away from legacy numeric
+            # checkpoints while preserving the original numeric path.
+            return home / "checkpoints" / "cmab_one_hot"
         return home / "checkpoints"
 
     def _start_continuous_training_subprocess(self):
@@ -212,6 +222,10 @@ class AutopilotController:
             ]
             if self.enable_accelerator:
                 cmd.append("--enable-accelerator")
+            if self.rl_algo == "cmab":
+                cmd.extend(
+                    ["--action-encoding", str(self.cmab_action_encoding)]
+                )
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
 
@@ -329,6 +343,12 @@ def main():
                        choices=['cmab', 'gp_bo', 'kernel_ucb'],
                        help='RL algorithm: cmab (RF-TS), gp_bo (GP-UCB), or kernel_ucb')
     parser.add_argument(
+        '--cmab-action-encoding',
+        choices=['numeric', 'one_hot'],
+        default='numeric',
+        help='CMAB-RF action feature encoding (default: numeric)',
+    )
+    parser.add_argument(
         '--warmup-iterations',
         type=int,
         default=5,
@@ -357,6 +377,7 @@ def main():
     print(f"🏷️  Node index: {args.node_index}")
     print(f"📝 Log dir: {args.log_dir}")
     print(f"🧠 RL algo: {args.rl_algo}")
+    print(f"🔢 CMAB action encoding: {args.cmab_action_encoding}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
     print(f"⚡ Accelerator: enabled={args.enable_accelerator} period={args.accelerator_period} epochs")
@@ -372,6 +393,7 @@ def main():
             log_dir=args.log_dir,
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
+            cmab_action_encoding=args.cmab_action_encoding,
             warmup_iterations=args.warmup_iterations,
             enable_accelerator=args.enable_accelerator,
             accelerator_period=args.accelerator_period,

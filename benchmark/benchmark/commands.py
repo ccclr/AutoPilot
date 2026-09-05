@@ -1,5 +1,6 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
 import os
+import shlex
 import subprocess
 from os.path import join
 
@@ -244,6 +245,7 @@ class CommandMaker:
         python_bin=None,
         resume_from=None,
         rl_algo=None,
+        cmab_action_encoding=None,
         warmup_iterations=None,
         enable_accelerator=None,
         accelerator_period=None,
@@ -259,6 +261,11 @@ class CommandMaker:
         cmd += f' --parameters-file {parameters_file}'
         if rl_algo:
             cmd += f' --rl-algo {rl_algo}'
+        if cmab_action_encoding:
+            cmd += (
+                ' --cmab-action-encoding '
+                f'{shlex.quote(str(cmab_action_encoding))}'
+            )
         if resume_from:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:

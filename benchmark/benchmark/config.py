@@ -273,6 +273,17 @@ class BenchParameters:
             ):
                 raise ConfigError('rl_algo must be "cmab", "gp_bo", or "kernel_ucb"')
             self.rl_algo = rl_algo.lower()
+            cmab_action_encoding = json.get(
+                'cmab_action_encoding', 'numeric'
+            )
+            if (
+                not isinstance(cmab_action_encoding, str)
+                or cmab_action_encoding.lower() not in ('numeric', 'one_hot')
+            ):
+                raise ConfigError(
+                    'cmab_action_encoding must be "numeric" or "one_hot"'
+                )
+            self.cmab_action_encoding = cmab_action_encoding.lower()
 
             # Unified warmup passed to controller/trainer:
             # cmab -> skip N policy updates; gp_bo/kernel_ucb -> N cold-start samples before fit.
