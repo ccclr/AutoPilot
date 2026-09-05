@@ -42,6 +42,11 @@ class CMABActionEncodingConfigTests(TestCase):
         with self.assertRaisesRegex(ConfigError, 'cmab_action_encoding'):
             BenchParameters(_parameters(cmab_action_encoding='ordinal'))
 
+    def test_accepts_xgboost_algo(self):
+        parameters = BenchParameters(_parameters(rl_algo='xgboost'))
+
+        self.assertEqual(parameters.rl_algo, 'xgboost')
+
     def test_controller_command_contains_encoding(self):
         command = CommandMaker.run_controller(
             node_index=0,

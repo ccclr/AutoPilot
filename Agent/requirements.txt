@@ -4,5 +4,6 @@ psutil
 gymnasium
 torch
 scikit-learn
+xgboost
 joblib
 dm-tree

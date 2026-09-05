@@ -117,7 +117,7 @@ class AutopilotController:
             node_index: node index for logging
             log_dir: log directory
             resume_from: optional policy checkpoint path
-            rl_algo: "cmab" (RF-TS), "gp_bo" (GP-UCB), or "kernel_ucb" (KernelUCB)
+            rl_algo: "cmab" (RF-TS), "xgboost", "gp_bo" (GP-UCB), or "kernel_ucb"
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO / KernelUCB: collect N cold-start samples before first model fit.
@@ -138,7 +138,7 @@ class AutopilotController:
         self.warmup_iterations = max(0, int(warmup_iterations))
         self.enable_accelerator = bool(enable_accelerator)
         self.accelerator_period = max(1, int(accelerator_period))
-        if self.rl_algo not in ("cmab", "gp_bo", "kernel_ucb"):
+        if self.rl_algo not in ("cmab", "xgboost", "gp_bo", "kernel_ucb"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
         self._rl_root = Path(__file__).resolve().parent.parent
@@ -183,6 +183,8 @@ class AutopilotController:
             return "train_gp_bo.py"
         if self.rl_algo == "kernel_ucb":
             return "train_kernel_ucb.py"
+        if self.rl_algo == "xgboost":
+            return "train_xgboost.py"
         return "train_cmab_continuous.py"
 
     def _checkpoint_dir(self) -> Path:
@@ -191,6 +193,8 @@ class AutopilotController:
             return home / "gp_bo_checkpoints"
         if self.rl_algo == "kernel_ucb":
             return home / "kernel_ucb_checkpoints"
+        if self.rl_algo == "xgboost":
+            return home / "xgboost_checkpoints"
         if self.rl_algo == "cmab" and self.cmab_action_encoding == "one_hot":
             # Keep experimental one-hot checkpoints away from legacy numeric
             # checkpoints while preserving the original numeric path.
@@ -222,7 +226,7 @@ class AutopilotController:
             ]
             if self.enable_accelerator:
                 cmd.append("--enable-accelerator")
-            if self.rl_algo == "cmab":
+            if self.rl_algo in ("cmab", "xgboost"):
                 cmd.extend(
                     ["--action-encoding", str(self.cmab_action_encoding)]
                 )
@@ -340,8 +344,8 @@ def main():
     parser.add_argument('--resume-from', type=str, default=None,
                        help='Resume RL policy from checkpoint path')
     parser.add_argument('--rl-algo', type=str, default='cmab',
-                       choices=['cmab', 'gp_bo', 'kernel_ucb'],
-                       help='RL algorithm: cmab (RF-TS), gp_bo (GP-UCB), or kernel_ucb')
+                       choices=['cmab', 'xgboost', 'gp_bo', 'kernel_ucb'],
+                       help='RL algorithm: cmab (RF-TS), xgboost, gp_bo (GP-UCB), or kernel_ucb')
     parser.add_argument(
         '--cmab-action-encoding',
         choices=['numeric', 'one_hot'],

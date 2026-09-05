@@ -262,16 +262,19 @@ class BenchParameters:
                     raise ConfigError('cmab_resume_from must be a string path or null')
                 self.cmab_resume_from = resume_from
 
-            # RL algorithm: "cmab" (RF-TS), "gp_bo" (GP-UCB), or "kernel_ucb".
+            # RL algorithm: "cmab" (RF-TS), "xgboost", "gp_bo" (GP-UCB), or "kernel_ucb".
             rl_algo = json.get('rl_algo', 'cmab')
             if rl_algo in (None, ''):
                 rl_algo = 'cmab'
             if not isinstance(rl_algo, str) or rl_algo.lower() not in (
                 'cmab',
+                'xgboost',
                 'gp_bo',
                 'kernel_ucb',
             ):
-                raise ConfigError('rl_algo must be "cmab", "gp_bo", or "kernel_ucb"')
+                raise ConfigError(
+                    'rl_algo must be "cmab", "xgboost", "gp_bo", or "kernel_ucb"'
+                )
             self.rl_algo = rl_algo.lower()
             cmab_action_encoding = json.get(
                 'cmab_action_encoding', 'numeric'

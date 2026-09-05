@@ -4,11 +4,17 @@ from .arm_catalog import ArmCatalog
 from .policy import CMABPolicy
 from .trainer import CMABTrainer
 
+try:
+    from .xgboost_policy import XGBoostPolicy
+except ImportError:  # pragma: no cover - optional until xgboost is installed
+    XGBoostPolicy = None
+
 __all__ = [
     "TrainingAccelerator",
     "ContextBuilder",
     "ArmCatalog",
     "CMABPolicy",
+    "XGBoostPolicy",
     "CMABTrainer",
 ]
 

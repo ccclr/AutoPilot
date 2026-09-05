@@ -41,7 +41,7 @@ def local(ctx, debug=False, enable_accelerator=False, accelerator_period=100):
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
+        # RL algorithm: "cmab", "xgboost", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         # CMAB-RF only: "numeric" preserves the legacy raw parameter vector;
         # "one_hot" assigns one indicator feature to each complete arm.
@@ -184,13 +184,13 @@ def remote(ctx, debug=False):
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
         'cmab_resume_from': None,
-        # RL algorithm: "cmab", "gp_bo", or "kernel_ucb"
+        # RL algorithm: "cmab", "xgboost", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
         'cmab_action_encoding': 'one_hot',
         'rl_warmup_iterations': 5,
-        'enable_accelerator': True,
+        'enable_accelerator': False,
         'accelerator_period': 20,
 
         # Unused
