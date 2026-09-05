@@ -246,6 +246,7 @@ class CommandMaker:
         resume_from=None,
         rl_algo=None,
         cmab_action_encoding=None,
+        cmab_seed=None,
         warmup_iterations=None,
         enable_accelerator=None,
         accelerator_period=None,
@@ -266,6 +267,8 @@ class CommandMaker:
                 ' --cmab-action-encoding '
                 f'{shlex.quote(str(cmab_action_encoding))}'
             )
+        if cmab_seed is not None:
+            cmd += f' --cmab-seed {int(cmab_seed)}'
         if resume_from:
             cmd += f' --resume-from {resume_from}'
         if warmup_iterations is not None:

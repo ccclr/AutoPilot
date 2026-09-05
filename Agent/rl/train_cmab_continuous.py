@@ -65,11 +65,12 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s",
+        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s seed=%d",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
         args.action_encoding,
+        args.seed,
     )
 
     codec = ActionCodec(policy=args.policy)

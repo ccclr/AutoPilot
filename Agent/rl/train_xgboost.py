@@ -73,12 +73,13 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous XGBoost Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s n_estimators=%d",
+        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s n_estimators=%d seed=%d",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
         args.action_encoding,
         args.n_estimators,
+        args.seed,
     )
 
     codec_policy = "default" if args.policy == "default" else "rf_ts"

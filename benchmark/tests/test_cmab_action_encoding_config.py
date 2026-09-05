@@ -59,6 +59,32 @@ class CMABActionEncodingConfigTests(TestCase):
 
         self.assertIn('--cmab-action-encoding one_hot', command)
 
+    def test_cmab_seed_defaults_to_zero(self):
+        parameters = BenchParameters(_parameters())
+
+        self.assertEqual(parameters.cmab_seed, 0)
+
+    def test_accepts_cmab_seed(self):
+        parameters = BenchParameters(_parameters(cmab_seed=1))
+
+        self.assertEqual(parameters.cmab_seed, 1)
+
+    def test_rejects_negative_cmab_seed(self):
+        with self.assertRaisesRegex(ConfigError, 'cmab_seed'):
+            BenchParameters(_parameters(cmab_seed=-1))
+
+    def test_controller_command_contains_seed(self):
+        command = CommandMaker.run_controller(
+            node_index=0,
+            repo_name='autopilot',
+            log_dir='/local/logs',
+            parameters_file='/local/.parameters.json',
+            rl_algo='cmab',
+            cmab_seed=0,
+        )
+
+        self.assertIn('--cmab-seed 0', command)
+
 
 if __name__ == '__main__':
     import unittest

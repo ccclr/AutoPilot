@@ -46,6 +46,8 @@ def local(ctx, debug=False, enable_accelerator=False, accelerator_period=100):
         # CMAB-RF only: "numeric" preserves the legacy raw parameter vector;
         # "one_hot" assigns one indicator feature to each complete arm.
         'cmab_action_encoding': 'numeric',
+        # Pair this seed with the matching one_hot run; change only between reps.
+        'cmab_seed': 0,
         'rl_warmup_iterations': 5,
         'enable_accelerator': bool(enable_accelerator),
         'accelerator_period': int(accelerator_period),
@@ -189,6 +191,9 @@ def remote(ctx, debug=False):
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
         'cmab_action_encoding': 'one_hot',
+        # First encoding-comparison repetition. Keep this value identical
+        # when switching numeric <-> one_hot; use 1, 2, ... for later reps.
+        'cmab_seed': 0,
         'rl_warmup_iterations': 5,
         'enable_accelerator': False,
         'accelerator_period': 20,

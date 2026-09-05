@@ -104,6 +104,7 @@ class AutopilotController:
         resume_from: Optional[str] = None,
         rl_algo: str = "cmab",
         cmab_action_encoding: str = "numeric",
+        cmab_seed: int = 0,
         warmup_iterations: int = 5,
         enable_accelerator: bool = False,
         accelerator_period: int = 100,
@@ -118,6 +119,7 @@ class AutopilotController:
             log_dir: log directory
             resume_from: optional policy checkpoint path
             rl_algo: "cmab" (RF-TS), "xgboost", "gp_bo" (GP-UCB), or "kernel_ucb"
+            cmab_seed: forwarded to the trainer as --seed (RF/XGBoost random_state).
             warmup_iterations: unified warmup control passed to the training script.
                 CMAB: skip policy updates for N iterations.
                 GP-BO / KernelUCB: collect N cold-start samples before first model fit.
@@ -135,6 +137,9 @@ class AutopilotController:
             raise ValueError(
                 "CMAB action encoding must be 'numeric' or 'one_hot'"
             )
+        self.cmab_seed = int(cmab_seed)
+        if self.cmab_seed < 0:
+            raise ValueError("CMAB seed must be an integer >= 0")
         self.warmup_iterations = max(0, int(warmup_iterations))
         self.enable_accelerator = bool(enable_accelerator)
         self.accelerator_period = max(1, int(accelerator_period))
@@ -230,6 +235,7 @@ class AutopilotController:
                 cmd.extend(
                     ["--action-encoding", str(self.cmab_action_encoding)]
                 )
+            cmd.extend(["--seed", str(self.cmab_seed)])
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
 
@@ -353,6 +359,12 @@ def main():
         help='CMAB-RF action feature encoding (default: numeric)',
     )
     parser.add_argument(
+        '--cmab-seed',
+        type=int,
+        default=0,
+        help='RF/XGBoost random_state forwarded as trainer --seed (default: 0)',
+    )
+    parser.add_argument(
         '--warmup-iterations',
         type=int,
         default=5,
@@ -382,6 +394,7 @@ def main():
     print(f"📝 Log dir: {args.log_dir}")
     print(f"🧠 RL algo: {args.rl_algo}")
     print(f"🔢 CMAB action encoding: {args.cmab_action_encoding}")
+    print(f"🎲 CMAB seed: {args.cmab_seed}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
     print(f"⚡ Accelerator: enabled={args.enable_accelerator} period={args.accelerator_period} epochs")
@@ -398,6 +411,7 @@ def main():
             resume_from=args.resume_from,
             rl_algo=args.rl_algo,
             cmab_action_encoding=args.cmab_action_encoding,
+            cmab_seed=args.cmab_seed,
             warmup_iterations=args.warmup_iterations,
             enable_accelerator=args.enable_accelerator,
             accelerator_period=args.accelerator_period,

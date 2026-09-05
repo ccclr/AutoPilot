@@ -288,6 +288,16 @@ class BenchParameters:
                 )
             self.cmab_action_encoding = cmab_action_encoding.lower()
 
+            # RF/XGBoost random_state. Pair numeric vs one_hot with the same
+            # seed; change it only between experiment repetitions.
+            try:
+                cmab_seed = int(json.get('cmab_seed', 0) or 0)
+            except (TypeError, ValueError) as e:
+                raise ConfigError('cmab_seed must be an integer >= 0') from e
+            if cmab_seed < 0:
+                raise ConfigError('cmab_seed must be an integer >= 0')
+            self.cmab_seed = cmab_seed
+
             # Unified warmup passed to controller/trainer:
             # cmab -> skip N policy updates; gp_bo/kernel_ucb -> N cold-start samples before fit.
             warmup = json.get('rl_warmup_iterations', 5)

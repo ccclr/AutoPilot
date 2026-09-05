@@ -554,12 +554,14 @@ class Bench:
         cmab_action_encoding = getattr(
             bench_parameters, 'cmab_action_encoding', 'numeric'
         )
+        cmab_seed = getattr(bench_parameters, 'cmab_seed', 0)
         warmup_iterations = getattr(bench_parameters, 'rl_warmup_iterations', 5)
         enable_accelerator = getattr(bench_parameters, 'enable_accelerator', False)
         accelerator_period = getattr(bench_parameters, 'accelerator_period', 100)
         Print.info(f'RL algo: {rl_algo}')
         if rl_algo in ('cmab', 'xgboost'):
             Print.info(f'Action encoding: {cmab_action_encoding}')
+        Print.info(f'CMAB seed: {cmab_seed}')
         Print.info(f'RL warmup iterations: {warmup_iterations}')
         Print.info(f'RL accelerator: enabled={enable_accelerator} period={accelerator_period} epochs')
         if resume_from:
@@ -577,6 +579,7 @@ class Bench:
                 cmab_action_encoding=(
                     cmab_action_encoding if rl_algo in ('cmab', 'xgboost') else None
                 ),
+                cmab_seed=cmab_seed,
                 warmup_iterations=warmup_iterations,
                 enable_accelerator=enable_accelerator,
                 accelerator_period=accelerator_period,
