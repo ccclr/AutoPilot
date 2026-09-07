@@ -172,8 +172,11 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=False):
+def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', duration=7200):
     ''' Run benchmarks on CloudLab. '''
+    encoding = str(cmab_action_encoding).lower()
+    if encoding not in ('numeric', 'one_hot'):
+        raise ValueError('cmab_action_encoding must be "numeric" or "one_hot"')
     bench_params = {
         'faults': 0,
         'nodes': [4],
@@ -181,18 +184,18 @@ def remote(ctx, debug=False):
         'collocate': True,
         'rate': [40_000],
         'tx_size': 512,
+        # Safety cap; the encoding sweep kills at 150 epochs.
         'duration': 3000,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': None,
+        'cmab_resume_from': "/users/clr0302/checkpoints/cmab_checkpoint_150.pkl",
         # RL algorithm: "cmab", "xgboost", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
-        'cmab_action_encoding': 'one_hot',
-        # First encoding-comparison repetition. Keep this value identical
-        # when switching numeric <-> one_hot; use 1, 2, ... for later reps.
+        'cmab_action_encoding': "one_hot",
+        # Pair numeric/one_hot with the same seed; change only between reps.
         'cmab_seed': 0,
         'rl_warmup_iterations': 5,
         'enable_accelerator': False,
@@ -204,11 +207,11 @@ def remote(ctx, debug=False):
         'partition_duration': 5,
         'partition_nodes': 2,
         
-        'enable_hotspot': False,
+        'enable_hotspot': True,
         'hotspot_windows': [[0, 3000]],
-        'hotspot_regions': [['apt']],
+        'hotspot_regions': [['Clem']],
         'hotspot_nodes': [[2]],
-        'hotspot_region_rates': [[[0.5, 0.9]]], 
+        'hotspot_region_rates': [[[0.94, 0.94]]], 
     }
     node_params = {
         'timeout_delay': 5_000,  # ms

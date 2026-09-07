@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import os
 import sys
 from pathlib import Path
@@ -16,13 +17,50 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "benchmark"))
 
 from benchmark.cloudlab_settings import CloudLabSettings, CloudLabSettingsError
 
-KILL_CMDS = [
-    "sudo su || true",
-    "pkill -f autopilot || true",
-    "pkill -f '[.]/node ' || true",
-    "pkill -f benchmark_client || true",
-    "tmux kill-server || true",
-]
+# Runs on each host. Match /proc cmdline, never pkill -f (that kills the SSH
+# wrapper because the pattern appears in the remote command line).
+_REMOTE_KILL_PY = r"""
+import os
+import signal
+
+self_pid = os.getpid()
+ppid = os.getppid()
+needles = (
+    "controllers/controller.py",
+    "train_cmab_continuous.py",
+    "train_xgboost.py",
+    "train_gp_bo.py",
+    "train_kernel_ucb.py",
+    "metrics_collector.py",
+    "benchmark_client",
+)
+killed = []
+for pid in os.listdir("/proc"):
+    if not pid.isdigit():
+        continue
+    ipid = int(pid)
+    if ipid in (self_pid, ppid):
+        continue
+    try:
+        raw = open(f"/proc/{pid}/cmdline", "rb").read()
+    except OSError:
+        continue
+    cmdline = raw.replace(b"\x00", b" ").decode("utf-8", "replace")
+    hit = any(n in cmdline for n in needles)
+    if (not hit) and ("--keys" in cmdline) and (
+        "./node" in cmdline or "/node " in cmdline or cmdline.lstrip().startswith("node ")
+    ):
+        hit = True
+    if not hit:
+        continue
+    try:
+        os.kill(ipid, signal.SIGKILL)
+        killed.append(ipid)
+    except OSError:
+        pass
+print("killed_pids", killed)
+"""
+
 
 def _script_dir() -> Path:
     return Path(__file__).resolve().parent
@@ -40,6 +78,14 @@ def _load_ssh_connect_kwargs(settings: CloudLabSettings) -> dict:
         raise RuntimeError(f"Failed to load SSH key {settings.key_path}: {e}") from e
 
 
+def _remote_kill_command() -> str:
+    payload = base64.b64encode(_REMOTE_KILL_PY.encode()).decode()
+    return (
+        f"echo {payload} | base64 -d | python3 ; "
+        "tmux kill-server >/dev/null 2>&1 || true"
+    )
+
+
 def kill_all(settings_path: Path) -> None:
     try:
         settings = CloudLabSettings.load(str(settings_path))
@@ -51,10 +97,9 @@ def kill_all(settings_path: Path) -> None:
         raise RuntimeError(f"No hosts in {settings_path}")
 
     connect = _load_ssh_connect_kwargs(settings)
-    cmd = " ; ".join(KILL_CMDS)
+    cmd = _remote_kill_command()
 
     print(f"Killing remote processes on {len(hosts)} host(s): {', '.join(hosts)}")
-    print(f"Command: {cmd}")
 
     try:
         g = Group(*hosts, user=settings.username, connect_kwargs=connect)
@@ -63,13 +108,12 @@ def kill_all(settings_path: Path) -> None:
         raise RuntimeError(f"SSH group failure: {e}") from e
 
     for host, result in results.items():
-        # ThreadingGroup keys may be Connection objects.
         name = host.host if isinstance(host, Connection) else str(host)
+        out = ((result.stdout or "") + (result.stderr or "")).strip()
         if result.ok:
-            print(f"  OK  {name}")
+            print(f"  OK  {name} {out}")
         else:
-            err = (result.stderr or result.stdout or "").strip()
-            print(f"  FAIL {name}: exit={result.exited} {err}")
+            print(f"  FAIL {name}: exit={result.exited} {out}")
 
 
 def main() -> int:
