@@ -182,14 +182,14 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'nodes': [4],
         'workers': 1,
         'collocate': True,
-        'rate': [40_000],
+        'rate': [60_000],
         'tx_size': 512,
         # Safety cap; the encoding sweep kills at 150 epochs.
         'duration': 3000,
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': "/users/clr0302/checkpoints/cmab_checkpoint_150.pkl",
+        'cmab_resume_from': "/users/clr0302/autopilot/checkpoints/cmab_checkpoint_150.pkl",
         # RL algorithm: "cmab", "xgboost", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
@@ -225,9 +225,9 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 24,
-        'window_size': 4,
-        'applied_begin': 20,
+        'epoch_slots': 32,
+        'window_size': 8,
+        'applied_begin': 30,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,

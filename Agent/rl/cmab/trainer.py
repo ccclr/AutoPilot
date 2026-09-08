@@ -118,9 +118,12 @@ class CMABTrainer:
                 if current_epoch is not None:
                     # Action selected from state_t is credited to reward from state_{t+1}.
                     action_by_epoch[current_epoch + 1] = arm
+                    apply_epoch = current_epoch + 1
+                else:
+                    apply_epoch = None
 
-                self._write_parameters_to_file(params, current_epoch)
-                logger.info("Applied params: %s", params)
+                self._write_parameters_to_file(params, apply_epoch)
+                logger.info("Applied params: %s (signal_epoch=%s)", params, apply_epoch)
 
                 next_metrics = self._wait_for_new_metrics_file(self.last_metrics_file, timeout=self.metrics_timeout)
                 if next_metrics is None:
@@ -149,25 +152,23 @@ class CMABTrainer:
                     for epoch in range(current_epoch + 2, reward_epoch + 1):
                         action_by_epoch.setdefault(epoch, arm)
                 # Credit priority:
-                # 1) abandon signal => previous epoch action
-                # 2) direct epoch mapping => action selected for reward_epoch
-                # 3) fallback => current selected arm
+                # 1) direct epoch mapping => action selected for reward_epoch
+                # 2) fallback => current selected arm
                 use_arm = action_by_epoch.get(reward_epoch) if reward_epoch is not None else None
-                if reward_epoch is not None:
-                    abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
-                    if abandon_signal.exists():
-                        logger.warning(
-                            "Detected abandon signal for epoch %s, using previous iteration action for update",
-                            reward_epoch,
-                        )
-                        use_arm = last_arm
-
                 if use_arm is None:
                     # Safety fallback when previous action is unavailable.
                     use_arm = arm
 
+                apply_ok = self._param_apply_ok_from_global_state(next_metrics)
                 in_warmup = iteration < self.warmup_iterations
-                if not in_warmup:
+                if not apply_ok:
+                    logger.warning(
+                        "Skip policy update: param_apply_ok=false metrics=%s reward=%.6f intended_arm=%s",
+                        next_metrics.name,
+                        reward,
+                        use_arm,
+                    )
+                elif not in_warmup:
                     update_contexts = [context] if self.policy.uses_context else None
                     self.policy.update(
                         [use_arm],
@@ -193,11 +194,7 @@ class CMABTrainer:
 
                 iteration += 1
                 self.reward_history.append(reward)
-
-                if reward_epoch is not None:
-                    abandon_signal = Path(f"/tmp/autopilot_rl_param_abandon_{reward_epoch-1}.signal")
-                    if not abandon_signal.exists():
-                        last_arm = use_arm
+                last_arm = use_arm
                 
                 avg_reward = sum(self.reward_history) / len(self.reward_history)
                 top_arm = max(self.arm_counts, key=self.arm_counts.get)
@@ -440,6 +437,22 @@ class CMABTrainer:
         except (TypeError, ValueError):
             logger.warning("Invalid global_reward in %s: %s", metrics_path, reward)
             return 0.0
+
+    @staticmethod
+    def _param_apply_ok_from_payload(data: dict) -> bool:
+        return data.get("param_apply_ok") is True
+
+    def _param_apply_ok_from_global_state(self, metrics_path: Path) -> bool:
+        data = self._load_json_with_retry(metrics_path)
+        apply_ok = self._param_apply_ok_from_payload(data)
+        logger.info(
+            "PARAM_APPLY_OK metrics=%s ok=%s count=%s reports=%s",
+            metrics_path.name,
+            apply_ok,
+            data.get("param_apply_ok_count"),
+            data.get("param_apply_ok_reports"),
+        )
+        return apply_ok
 
     def _compute_shared_seed_hex(self, metrics_path: Path) -> str:
         """

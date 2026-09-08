@@ -16,6 +16,7 @@ if str(RL_ROOT) not in sys.path:
 from actions.action_encode import ActionCodec
 from cmab.arm_catalog import ArmCatalog
 from cmab.policy import CMABPolicy
+from cmab.trainer import CMABTrainer
 
 
 ARMS = (
@@ -116,6 +117,12 @@ class CMABActionEncodingTests(unittest.TestCase):
     def test_rejects_unknown_encoding(self) -> None:
         with self.assertRaisesRegex(ValueError, "action encoding"):
             self._policy("ordinal")
+
+    def test_param_apply_ok_requires_explicit_true(self) -> None:
+        self.assertTrue(CMABTrainer._param_apply_ok_from_payload({"param_apply_ok": True}))
+        self.assertFalse(CMABTrainer._param_apply_ok_from_payload({"param_apply_ok": False}))
+        self.assertFalse(CMABTrainer._param_apply_ok_from_payload({}))
+        self.assertFalse(CMABTrainer._param_apply_ok_from_payload({"param_apply_ok": 1}))
 
 
 if __name__ == "__main__":

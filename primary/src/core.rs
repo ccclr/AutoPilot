@@ -342,6 +342,9 @@ pub struct Core {
     pending_param_update_epoch: Option<u64>,
     // Pending parameter updates captured at signal time
     pending_param_update_params: Option<serde_json::Value>,
+    // Whether RL params were installed at applied_begin for param_apply_ok_epoch.
+    param_apply_ok: bool,
+    param_apply_ok_epoch: u64,
 
     // Channel to send parameter updates to proposer
     tx_proposer_params: Sender<(usize, u64)>, // (header_size, max_header_delay)
@@ -577,6 +580,8 @@ impl Core {
                 pending_param_update_epoch: None,
                 // Pending parameter update params
                 pending_param_update_params: None,
+                param_apply_ok: false,
+                param_apply_ok_epoch: 0,
                 // Channel to send parameter updates to proposer
                 tx_proposer_params,
                 // Parameters tracked for dynamic updates
@@ -2744,40 +2749,25 @@ impl Core {
                 self.persist_coordination_certificate(*slot, *view, qc)
                     .await?;
 
-                // Apply pending parameter update when reaching applied_begin in that epoch
+                // Apply pending parameter update when reaching applied_begin in that epoch.
+                // If that window is already past, drop the update instead of rolling it forward.
                 if let Some(target_epoch) = self.pending_param_update_epoch {
                     if self.applied_begin == 0 || self.epoch_slots == 0 {
-                        if let Some(json_value) = self
-                            .pending_param_update_params
-                            .take()
-                            .or_else(|| self.read_parameters_file())
-                        {
-                            self.apply_parameter_updates(&json_value).await;
-                        } else {
-                            warn!("Pending parameter update has no captured values");
-                        }
-                        self.pending_param_update_epoch = None;
-                        self.rl_param_signal_epoch = self.rl_param_signal_epoch.saturating_add(1);
+                        self.apply_pending_parameters(target_epoch).await;
                     } else if let Some(pos_in_epoch) = self.epoch_slot_index(*slot) {
-                        if pos_in_epoch == self.applied_begin
-                            && self.epoch_index_for_slot(*slot) == target_epoch
+                        let current_epoch = self.epoch_index_for_slot(*slot);
+                        if pos_in_epoch == self.applied_begin && current_epoch == target_epoch
                         {
                             info!(
                                 "✅ Applying parameter update after slot {} committed (epoch {})",
                                 self.applied_begin, target_epoch
                             );
-                            if let Some(json_value) = self
-                                .pending_param_update_params
-                                .take()
-                                .or_else(|| self.read_parameters_file())
-                            {
-                                self.apply_parameter_updates(&json_value).await;
-                            } else {
-                                warn!("Pending parameter update has no captured values");
-                            }
-                            self.pending_param_update_epoch = None;
-                            self.rl_param_signal_epoch =
-                                self.rl_param_signal_epoch.saturating_add(1);
+                            self.apply_pending_parameters(target_epoch).await;
+                        } else if current_epoch > target_epoch
+                            || (current_epoch == target_epoch
+                                && pos_in_epoch > self.applied_begin)
+                        {
+                            self.drop_param_update(target_epoch, *slot);
                         }
                     }
                 }
@@ -4089,6 +4079,50 @@ impl Core {
         }
     }
 
+    async fn apply_pending_parameters(&mut self, target_epoch: u64) {
+        if let Some(json_value) = self
+            .pending_param_update_params
+            .take()
+            .or_else(|| self.read_parameters_file())
+        {
+            self.apply_parameter_updates(&json_value).await;
+            self.param_apply_ok = true;
+            self.param_apply_ok_epoch = target_epoch;
+            info!("📌 param_apply_ok=true for epoch {}", target_epoch);
+        } else {
+            warn!("Pending parameter update has no captured values");
+            self.param_apply_ok = false;
+            self.param_apply_ok_epoch = target_epoch;
+        }
+        self.pending_param_update_epoch = None;
+        self.rl_param_signal_epoch = self.rl_param_signal_epoch.saturating_add(1);
+    }
+
+    fn drop_param_update(&mut self, missed_epoch: u64, last_slot: u64) {
+        self.param_apply_ok = false;
+        self.param_apply_ok_epoch = missed_epoch;
+        self.pending_param_update_epoch = None;
+        self.pending_param_update_params = None;
+        self.rl_param_signal_epoch = missed_epoch.saturating_add(1);
+        info!(
+            "🗑️  Dropping late parameter update for epoch {} (slot {})",
+            missed_epoch, last_slot
+        );
+    }
+
+    fn inject_param_apply_ok(&self, state_json: String, epoch: u64) -> String {
+        let mut root = match serde_json::from_str::<serde_json::Value>(&state_json) {
+            Ok(value) => value,
+            Err(_) => return state_json,
+        };
+        let apply_ok =
+            epoch == 0 || (self.param_apply_ok && self.param_apply_ok_epoch == epoch);
+        if let Some(object) = root.as_object_mut() {
+            object.insert("param_apply_ok".to_string(), serde_json::json!(apply_ok));
+        }
+        serde_json::to_string(&root).unwrap_or(state_json)
+    }
+
     async fn check_and_update_parameters(&mut self) {
         if let Some(json_value) = self.read_parameters_file() {
             self.apply_parameter_updates(&json_value).await;
@@ -4117,6 +4151,8 @@ impl Core {
 
         if self.epoch_slots == 0 || self.applied_begin == 0 {
             let _ = self.check_and_update_parameters().await;
+            self.param_apply_ok = true;
+            self.param_apply_ok_epoch = signal_epoch;
             self.rl_param_signal_epoch = signal_epoch.saturating_add(1);
             return Ok(());
         }
@@ -4146,12 +4182,7 @@ impl Core {
         }
 
         if signal_epoch < current_epoch {
-            info!(
-                "⏭️  Skipping stale parameter signal for epoch {} (current epoch {})",
-                signal_epoch, current_epoch
-            );
-            self.rl_param_signal_epoch =
-                max(self.rl_param_signal_epoch, signal_epoch.saturating_add(1));
+            self.drop_param_update(signal_epoch, last_slot);
             return Ok(());
         }
 
@@ -4168,23 +4199,7 @@ impl Core {
 
         if let Some(pos_in_epoch) = self.epoch_slot_index(last_slot) {
             if pos_in_epoch >= self.applied_begin {
-                info!(
-                    "⏭️  Skipping parameter update for epoch {} (applied_begin already passed at slot {})",
-                    signal_epoch, last_slot
-                );
-                let abandon_signal =
-                    format!("/tmp/autopilot_rl_param_abandon_{}.signal", signal_epoch);
-                match std::fs::File::create(&abandon_signal) {
-                    Ok(_) => info!(
-                        "🚫 Abandoning param update for epoch {}, created {}",
-                        signal_epoch, abandon_signal
-                    ),
-                    Err(e) => warn!(
-                        "Failed to create abandon signal file {}: {}",
-                        abandon_signal, e
-                    ),
-                }
-                self.rl_param_signal_epoch = signal_epoch.saturating_add(1);
+                self.drop_param_update(signal_epoch, last_slot);
             } else {
                 self.pending_param_update_epoch = Some(signal_epoch);
                 self.capture_pending_parameters();
@@ -4369,6 +4384,7 @@ impl Core {
         } else {
             state_json
         };
+        let state_json = self.inject_param_apply_ok(state_json, epoch);
 
         let report =
             StateReport::new(epoch, state_json, self.name, &mut self.signature_service).await;
@@ -4568,10 +4584,12 @@ impl Core {
         let mut lane_sum: BTreeMap<String, f64> = BTreeMap::new();
         let mut lane_count: BTreeMap<String, usize> = BTreeMap::new();
         let mut fast_path_ratio_samples: Vec<f64> = Vec::new();
+        let mut apply_ok_flags: Vec<bool> = Vec::new();
 
         for state_report in &report.reports {
             let Ok(state_json) = serde_json::from_str::<serde_json::Value>(&state_report.state)
             else {
+                apply_ok_flags.push(false);
                 continue;
             };
 
@@ -4583,6 +4601,11 @@ impl Core {
 
             if let Some(fpr) = Self::extract_fast_path_ratio(&state_json) {
                 fast_path_ratio_samples.push(fpr);
+            }
+
+            match state_json.get("param_apply_ok").and_then(|v| v.as_bool()) {
+                Some(ok) => apply_ok_flags.push(ok),
+                None => apply_ok_flags.push(false),
             }
 
             if let Some(growth_rates) = state_json
@@ -4643,6 +4666,11 @@ impl Core {
         };
 
         let lane_global = serde_json::json!({ "growth_rates": lane_result });
+        let apply_ok_true = apply_ok_flags.iter().filter(|ok| **ok).count();
+        let quorum = 2 * f + 1;
+        let param_apply_ok = !apply_ok_flags.is_empty()
+            && apply_ok_true == apply_ok_flags.len()
+            && apply_ok_true >= quorum;
 
         let global_state = serde_json::json!({
             "epoch": epoch,
@@ -4652,7 +4680,10 @@ impl Core {
             "reward_samples": reward_samples,
             "global_reward": global_reward,
             "global_fast_path_ratio": global_fast_path_ratio,
-            "state_4_lane_vector": lane_global
+            "state_4_lane_vector": lane_global,
+            "param_apply_ok": param_apply_ok,
+            "param_apply_ok_count": apply_ok_true,
+            "param_apply_ok_reports": apply_ok_flags.len()
         });
 
         let out_dir = format!("metrics-{}/", node_index);
