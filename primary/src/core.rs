@@ -343,6 +343,9 @@ pub struct Core {
     // Pending parameter updates captured at signal time
     pending_param_update_params: Option<serde_json::Value>,
     // Whether RL params were installed at applied_begin for param_apply_ok_epoch.
+    // StateReport for epoch t piggybacks the bit for epoch t-1: metrics are
+    // collected at window_size, which is before this epoch's applied_begin, so
+    // a complete (action, reward) pair is "applied in t-1, measured in t".
     param_apply_ok: bool,
     param_apply_ok_epoch: u64,
 
@@ -4115,8 +4118,11 @@ impl Core {
             Ok(value) => value,
             Err(_) => return state_json,
         };
-        let apply_ok =
-            epoch == 0 || (self.param_apply_ok && self.param_apply_ok_epoch == epoch);
+        // Report whether the previous epoch's action landed at its applied_begin.
+        // Epoch 0 has no predecessor, so the first report is always true.
+        let measured_epoch = epoch.saturating_sub(1);
+        let apply_ok = epoch == 0
+            || (self.param_apply_ok && self.param_apply_ok_epoch == measured_epoch);
         if let Some(object) = root.as_object_mut() {
             object.insert("param_apply_ok".to_string(), serde_json::json!(apply_ok));
         }
@@ -4166,19 +4172,11 @@ impl Core {
         }
 
         if let Some(pending_epoch) = self.pending_param_update_epoch {
-            if signal_epoch <= pending_epoch {
-                info!(
-                    "⏭️  Skipping stale parameter signal for epoch {} (pending epoch {})",
-                    signal_epoch, pending_epoch
-                );
-                return Ok(());
-            }
             info!(
-                "⏩ Replacing pending parameter update epoch {} with newer epoch {}",
-                pending_epoch, signal_epoch
+                "⏭️  Skipping parameter signal for epoch {} (pending epoch {} still waiting for applied_begin)",
+                signal_epoch, pending_epoch
             );
-            self.pending_param_update_epoch = None;
-            self.pending_param_update_params = None;
+            return Ok(());
         }
 
         if signal_epoch < current_epoch {

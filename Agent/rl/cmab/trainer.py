@@ -116,9 +116,11 @@ class CMABTrainer:
                 params = self.arm_catalog.decode_arm(arm)
                 self.arm_counts[arm] = self.arm_counts.get(arm, 0) + 1
                 if current_epoch is not None:
-                    # Action selected from state_t is credited to reward from state_{t+1}.
+                    # state_t selects an action applied at epoch t's applied_begin.
+                    # The next metrics file (state_{t+1}) is the first window after
+                    # that apply, so credit the arm to reward_{t+1}.
                     action_by_epoch[current_epoch + 1] = arm
-                    apply_epoch = current_epoch + 1
+                    apply_epoch = current_epoch
                 else:
                     apply_epoch = None
 
