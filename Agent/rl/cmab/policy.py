@@ -335,6 +335,7 @@ class CMABPolicy:
     def save(self, path):
         import joblib
         joblib.dump({
+            'reward_model': 'global',
             'rf': self._rf,
             'X': self._X,
             'y': self._y,
@@ -347,6 +348,12 @@ class CMABPolicy:
     def load(self, path):
         import joblib
         data = joblib.load(path)
+        checkpoint_reward_model = data.get('reward_model', 'global')
+        if checkpoint_reward_model != 'global':
+            raise ValueError(
+                "CMAB checkpoint reward model mismatch: "
+                f"checkpoint={checkpoint_reward_model}, configured=global"
+            )
         # Checkpoints written before action encoding was configurable used the
         # legacy numeric representation.
         checkpoint_encoding = data.get('action_encoding', 'numeric')

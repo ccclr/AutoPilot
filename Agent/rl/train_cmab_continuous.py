@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from actions.action_encode import ActionCodec
-from cmab import ArmCatalog, CMABPolicy, CMABTrainer, ContextBuilder
+from cmab import ArmCatalog, CMABPolicy, CMABTrainer, ContextBuilder, FactorizedCMABPolicy
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +50,14 @@ def main():
         help="Skip policy updates for the first N iterations (CMAB trainer warmup).",
     )
     parser.add_argument(
+        "--enable-factorized-reward",
+        action="store_true",
+        help=(
+            "Use the hierarchical factorized reward model instead of a "
+            "single global-reward RF."
+        ),
+    )
+    parser.add_argument(
         "--enable-accelerator",
         action="store_true",
         help="Enable periodic latency probing to prune fast_path_timeout.",
@@ -65,11 +73,13 @@ def main():
     warmup_iterations = max(0, int(args.warmup_iterations))
     logger.info("Starting Autopilot Continuous CMAB Training")
     logger.info(
-        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s seed=%d",
+        "metrics_dir=%s parameters_file=%s warmup=%d action_encoding=%s "
+        "factorized_reward=%s seed=%d",
         args.metrics_dir,
         args.parameters_file,
         warmup_iterations,
         args.action_encoding,
+        args.enable_factorized_reward,
         args.seed,
     )
 
@@ -77,14 +87,24 @@ def main():
     arm_catalog = ArmCatalog(codec=codec, max_arms=args.max_arms, seed=args.seed)
     arms = arm_catalog.list_arms()
     feature_dim = len(arm_catalog.decode_arm(arms[0])) if arms else 0
-    policy = CMABPolicy(
-        arms,
-        feature_dim=feature_dim,
-        policy_name=args.policy,
-        epsilon=args.epsilon,
-        random_state=args.seed,
-        action_encoding=args.action_encoding,
-    )
+    if args.enable_factorized_reward:
+        policy = FactorizedCMABPolicy(
+            arms,
+            feature_dim=feature_dim,
+            policy_name=args.policy,
+            epsilon=args.epsilon,
+            random_state=args.seed,
+        )
+        logger.info("Using FactorizedCMABPolicy (hierarchical main + pair RFs)")
+    else:
+        policy = CMABPolicy(
+            arms,
+            feature_dim=feature_dim,
+            policy_name=args.policy,
+            epsilon=args.epsilon,
+            random_state=args.seed,
+            action_encoding=args.action_encoding,
+        )
     if args.resume_from:
         policy.load(args.resume_from)
         logger.info("Loaded CMAB policy from %s", args.resume_from)

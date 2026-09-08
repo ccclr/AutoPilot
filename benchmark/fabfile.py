@@ -49,6 +49,9 @@ def local(ctx, debug=False, enable_accelerator=False, accelerator_period=100):
         # Pair this seed with the matching one_hot run; change only between reps.
         'cmab_seed': 0,
         'rl_warmup_iterations': 5,
+        # False: single global-reward RF (numeric/one_hot encoding).
+        # True: hierarchical factorized reward (main effects + cut×k, timeout×k).
+        'enable_factorized_reward': False,
         'enable_accelerator': bool(enable_accelerator),
         'accelerator_period': int(accelerator_period),
 
@@ -189,15 +192,19 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
-        'cmab_resume_from': "/users/clr0302/autopilot/checkpoints/cmab_checkpoint_150.pkl",
+        'cmab_resume_from': None,
         # RL algorithm: "cmab", "xgboost", "gp_bo", or "kernel_ucb"
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
-        'cmab_action_encoding': "one_hot",
+        'cmab_action_encoding': "numeric",
         # Pair numeric/one_hot with the same seed; change only between reps.
         'cmab_seed': 0,
         'rl_warmup_iterations': 5,
+        # False: keep the current global-reward RF (one_hot/numeric).
+        # True: switch the trainer to FactorizedCMABPolicy. Do not resume from
+        # a global RF checkpoint when this is True; set cmab_resume_from=None.
+        'enable_factorized_reward': True,
         'enable_accelerator': False,
         'accelerator_period': 20,
 

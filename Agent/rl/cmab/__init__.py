@@ -1,6 +1,7 @@
 from .accelerator import TrainingAccelerator
 from .context_builder import ContextBuilder
 from .arm_catalog import ArmCatalog
+from .factorized_policy import FactorizedCMABPolicy
 from .policy import CMABPolicy
 from .trainer import CMABTrainer
 
@@ -14,6 +15,7 @@ __all__ = [
     "ContextBuilder",
     "ArmCatalog",
     "CMABPolicy",
+    "FactorizedCMABPolicy",
     "XGBoostPolicy",
     "CMABTrainer",
 ]

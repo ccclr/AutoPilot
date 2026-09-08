@@ -108,6 +108,7 @@ class AutopilotController:
         warmup_iterations: int = 5,
         enable_accelerator: bool = False,
         accelerator_period: int = 100,
+        enable_factorized_reward: bool = False,
     ):
         """
         Initialize controller
@@ -125,6 +126,8 @@ class AutopilotController:
                 GP-BO / KernelUCB: collect N cold-start samples before first model fit.
             enable_accelerator: periodically probe latency and prune timeout arms.
             accelerator_period: idle epochs between master probes (apply 5 epochs later).
+            enable_factorized_reward: use hierarchical factorized RFs instead of
+                a single global-reward forest.
         """
         self.metrics_dir = Path(metrics_dir)
         self.parameters_file = Path(parameters_file)
@@ -143,6 +146,7 @@ class AutopilotController:
         self.warmup_iterations = max(0, int(warmup_iterations))
         self.enable_accelerator = bool(enable_accelerator)
         self.accelerator_period = max(1, int(accelerator_period))
+        self.enable_factorized_reward = bool(enable_factorized_reward)
         if self.rl_algo not in ("cmab", "xgboost", "gp_bo", "kernel_ucb"):
             raise ValueError(f"Unsupported rl_algo: {self.rl_algo}")
         # Agent/rl root (parent of controllers/)
@@ -200,6 +204,8 @@ class AutopilotController:
             return home / "kernel_ucb_checkpoints"
         if self.rl_algo == "xgboost":
             return home / "xgboost_checkpoints"
+        if self.rl_algo == "cmab" and self.enable_factorized_reward:
+            return home / "checkpoints" / "cmab_factorized"
         if self.rl_algo == "cmab" and self.cmab_action_encoding == "one_hot":
             # Keep experimental one-hot checkpoints away from legacy numeric
             # checkpoints while preserving the original numeric path.
@@ -231,6 +237,8 @@ class AutopilotController:
             ]
             if self.enable_accelerator:
                 cmd.append("--enable-accelerator")
+            if self.enable_factorized_reward and self.rl_algo == "cmab":
+                cmd.append("--enable-factorized-reward")
             if self.rl_algo in ("cmab", "xgboost"):
                 cmd.extend(
                     ["--action-encoding", str(self.cmab_action_encoding)]
@@ -374,6 +382,14 @@ def main():
         ),
     )
     parser.add_argument(
+        '--enable-factorized-reward',
+        action='store_true',
+        help=(
+            'Use hierarchical factorized reward RFs instead of a single '
+            'global-reward forest'
+        ),
+    )
+    parser.add_argument(
         '--enable-accelerator',
         action='store_true',
         help='Enable periodic latency probing to prune fast_path_timeout',
@@ -397,6 +413,7 @@ def main():
     print(f"🎲 CMAB seed: {args.cmab_seed}")
     print(f"🔁 Resume from: {args.resume_from}")
     print(f"🔥 Warmup iterations: {args.warmup_iterations}")
+    print(f"🧩 Factorized reward: enabled={args.enable_factorized_reward}")
     print(f"⚡ Accelerator: enabled={args.enable_accelerator} period={args.accelerator_period} epochs")
 
     # Logger will be initialized by AutopilotController
@@ -415,6 +432,7 @@ def main():
             warmup_iterations=args.warmup_iterations,
             enable_accelerator=args.enable_accelerator,
             accelerator_period=args.accelerator_period,
+            enable_factorized_reward=args.enable_factorized_reward,
         )
         print("✅ Controller initialized successfully")
     except Exception as e:

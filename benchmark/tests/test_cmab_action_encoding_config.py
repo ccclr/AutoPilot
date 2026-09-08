@@ -85,6 +85,42 @@ class CMABActionEncodingConfigTests(TestCase):
 
         self.assertIn('--cmab-seed 0', command)
 
+    def test_factorized_reward_defaults_to_false(self):
+        parameters = BenchParameters(_parameters())
+
+        self.assertFalse(parameters.enable_factorized_reward)
+
+    def test_accepts_enable_factorized_reward(self):
+        parameters = BenchParameters(
+            _parameters(enable_factorized_reward=True)
+        )
+
+        self.assertTrue(parameters.enable_factorized_reward)
+
+    def test_controller_command_contains_factorized_flag(self):
+        command = CommandMaker.run_controller(
+            node_index=0,
+            repo_name='autopilot',
+            log_dir='/local/logs',
+            parameters_file='/local/.parameters.json',
+            rl_algo='cmab',
+            enable_factorized_reward=True,
+        )
+
+        self.assertIn('--enable-factorized-reward', command)
+
+    def test_controller_command_omits_factorized_flag_when_disabled(self):
+        command = CommandMaker.run_controller(
+            node_index=0,
+            repo_name='autopilot',
+            log_dir='/local/logs',
+            parameters_file='/local/.parameters.json',
+            rl_algo='cmab',
+            enable_factorized_reward=False,
+        )
+
+        self.assertNotIn('--enable-factorized-reward', command)
+
 
 if __name__ == '__main__':
     import unittest

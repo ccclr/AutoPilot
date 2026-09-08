@@ -317,6 +317,12 @@ class BenchParameters:
             else:
                 self.enable_accelerator = bool(enable_acc)
 
+            enable_factorized = json.get('enable_factorized_reward', False)
+            if enable_factorized in (None, '', False, 0, '0', 'false', 'False'):
+                self.enable_factorized_reward = False
+            else:
+                self.enable_factorized_reward = bool(enable_factorized)
+
             # Probe every N consensus epochs on node 0; all nodes apply at detect_epoch+5.
             acc_period = json.get('accelerator_period', 100)
             if acc_period in (None, ''):
