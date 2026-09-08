@@ -194,7 +194,7 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
-        'cmab_action_encoding': "numeric",
+        'cmab_action_encoding': "one_hot",
         # Pair numeric/one_hot with the same seed; change only between reps.
         'cmab_seed': 0,
         'rl_warmup_iterations': 5,
@@ -211,7 +211,7 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['Clem']],
         'hotspot_nodes': [[2]],
-        'hotspot_region_rates': [[[0.98, 0.98]]], 
+        'hotspot_region_rates': [[[0.99, 0.99]]], 
     }
     node_params = {
         'timeout_delay': 5_000,  # ms
@@ -225,9 +225,9 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 32,
-        'window_size': 8,
-        'applied_begin': 30,
+        'epoch_slots': 24,
+        'window_size': 4,
+        'applied_begin': 22,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,
