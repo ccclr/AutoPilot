@@ -175,7 +175,7 @@ from fabric import task
 
 
 @task
-def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', duration=7200):
+def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', duration=10800, enable_factorized_reward=True):
     ''' Run benchmarks on CloudLab. '''
     encoding = str(cmab_action_encoding).lower()
     if encoding not in ('numeric', 'one_hot'):
@@ -185,10 +185,11 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'nodes': [4],
         'workers': 1,
         'collocate': True,
-        'rate': [60_000],
+        'rate': [40_000],
         'tx_size': 512,
-        # Safety cap; the encoding sweep kills at 150 epochs.
-        'duration': 3000,
+        # Long enough for 200 valid (apply-ok) epochs; the sweep runner
+        # kills earlier once that count is reached.
+        'duration': int(duration),
         'runs': 1,
 
         # CMAB: set a checkpoint path to resume RL, or None to train from scratch.
@@ -197,14 +198,14 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'rl_algo': 'cmab',
         # CMAB-RF action representation. Use "numeric" for the existing
         # baseline and "one_hot" for the encoding comparison experiment.
-        'cmab_action_encoding': "numeric",
+        'cmab_action_encoding': encoding,
         # Pair numeric/one_hot with the same seed; change only between reps.
-        'cmab_seed': 0,
+        'cmab_seed': int(cmab_seed),
         'rl_warmup_iterations': 5,
-        # False: keep the current global-reward RF (one_hot/numeric).
+        # False: keep the current global-reward RF (numeric/one_hot).
         # True: switch the trainer to FactorizedCMABPolicy. Do not resume from
         # a global RF checkpoint when this is True; set cmab_resume_from=None.
-        'enable_factorized_reward': True,
+        'enable_factorized_reward': bool(enable_factorized_reward),
         'enable_accelerator': False,
         'accelerator_period': 20,
 
@@ -214,7 +215,7 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'partition_duration': 5,
         'partition_nodes': 2,
         
-        'enable_hotspot': True,
+        'enable_hotspot': False,
         'hotspot_windows': [[0, 3000]],
         'hotspot_regions': [['Clem']],
         'hotspot_nodes': [[2]],
@@ -232,9 +233,11 @@ def remote(ctx, debug=False, cmab_seed=0, cmab_action_encoding='numeric', durati
         'use_optimistic_tips': True,
         'use_parallel_proposals': True,
         'k': 4,
-        'epoch_slots': 32,
+        'epoch_slots': 44,
         'window_size': 8,
-        'applied_begin': 30,
+        # Apply on first commit at/after this position (Rust uses >=).
+        # Keep well below epoch_slots so k-parallel slot skips still land.
+        'applied_begin': 42,
         'use_fast_path': True,
         'fast_path_timeout': 100,
         'use_ride_share': False,

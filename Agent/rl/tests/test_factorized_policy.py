@@ -40,7 +40,6 @@ class FactorizedCMABPolicyTests(unittest.TestCase):
             n_estimators=12,
             max_depth=4,
             min_samples_leaf=2,
-            explore_coef=0.0,
         )
         defaults.update(kwargs)
         return FactorizedCMABPolicy(**defaults)
@@ -108,6 +107,19 @@ class FactorizedCMABPolicyTests(unittest.TestCase):
         )
         chosen = policy.select_arm(CTX, shared_seed_hex="sel2")
         self.assertIn(parse_arm_factors(chosen)["fast_path_timeout"], (200,))
+
+    def test_select_arm_does_not_bonus_underexplored_factors(self) -> None:
+        policy = self._policy()
+        high = ARMS[0]
+        rare_low = ARMS[1]
+        policy.update(
+            [high] * 16 + [rare_low],
+            [8.0] * 16 + [1.0],
+            contexts=[CTX] * 17,
+            shared_seed_hex="counts",
+        )
+        chosen = policy.select_arm(CTX, shared_seed_hex="counts2")
+        self.assertEqual(parse_arm_factors(chosen)["fast_path_timeout"], 200)
 
     def test_checkpoint_roundtrip(self) -> None:
         policy = self._policy()

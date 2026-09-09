@@ -86,7 +86,7 @@ class CMABTrainer:
         else:
             logger.info("Accelerator disabled")
         self._connect_param_socket()
-        self.last_metrics_file = self._get_latest_metrics_file()
+        self.last_metrics_file = self._get_earliest_metrics_file()
         if self.last_metrics_file is None:
             logger.info("No existing metrics file, waiting for first available global_state...")
             self.last_metrics_file = self._wait_for_first_available_metrics_file(
@@ -132,6 +132,19 @@ class CMABTrainer:
                     logger.warning("Timeout waiting for new metrics file, skipping update.")
                     continue
 
+                reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
+                if current_epoch is not None and reward_epoch is not None and reward_epoch > current_epoch + 1:
+                    logger.warning(
+                        "Trainer lagged: jump epoch %s -> %s, skip policy update and re-signal live epoch",
+                        current_epoch,
+                        reward_epoch,
+                    )
+                    # Do not backfill skipped epochs: those signals would already
+                    # be behind replica current_epoch and get param_apply_ok=false.
+                    self._write_parameters_to_file(params, reward_epoch)
+                    self.last_metrics_file = next_metrics
+                    continue
+
                 reward = self._extract_reward_from_global_state(next_metrics)
                 if reward > 15 or reward == 0:
                     logger.warning(
@@ -142,17 +155,6 @@ class CMABTrainer:
                     # Move forward to avoid reprocessing the same metrics file.
                     self.last_metrics_file = next_metrics
                     continue
-                reward_epoch = self._get_epoch_from_metrics_file(next_metrics)
-                if current_epoch is not None and reward_epoch is not None and reward_epoch > current_epoch + 1:
-                    logger.warning(
-                        "Detected non-contiguous reward epoch: current=%s, reward=%s, backfilling credited arm for skipped epochs",
-                        current_epoch,
-                        reward_epoch,
-                    )
-                    # state_t selects action_{t+1}. action_{current+1} is already set above.
-                    # For jumps, only backfill truly skipped epochs: [current+2, reward_epoch].
-                    for epoch in range(current_epoch + 2, reward_epoch + 1):
-                        action_by_epoch.setdefault(epoch, arm)
                 # Credit priority:
                 # 1) direct epoch mapping => action selected for reward_epoch
                 # 2) fallback => current selected arm
@@ -260,48 +262,45 @@ class CMABTrainer:
         if hasattr(self.policy, "_arms"):
             self.policy._arms = self.accelerator.filter_arms(self.arm_catalog.list_arms())
 
+    def _metrics_files_by_epoch(self) -> list[tuple[int, Path]]:
+        files: list[tuple[int, Path]] = []
+        for file_path in self.metrics_dir.glob("global_state_epoch_*.json"):
+            epoch = self._get_epoch_from_metrics_file(file_path)
+            if epoch is None:
+                continue
+            files.append((epoch, file_path))
+        files.sort(key=lambda item: item[0])
+        return files
+
     def _get_latest_metrics_file(self) -> Optional[Path]:
-        files = list(self.metrics_dir.glob("global_state_epoch_*.json"))
-        if not files:
-            return None
+        files = self._metrics_files_by_epoch()
+        return files[-1][1] if files else None
 
-        def parse_file_key(file_path: Path):
-            try:
-                epoch = int(file_path.stem.split("_")[-1])
-                return (epoch,)
-            except (ValueError, IndexError, AttributeError):
-                return (-1,)
-
-        files.sort(key=parse_file_key, reverse=True)
-        return files[0]
+    def _get_earliest_metrics_file(self) -> Optional[Path]:
+        files = self._metrics_files_by_epoch()
+        return files[0][1] if files else None
 
     def _wait_for_new_metrics_file(self, last_metrics_file: Path, timeout: int) -> Optional[Path]:
-        logger.info("Waiting for newer metrics file (latest-wins)...")
-        start_time = time.time()
-
         current_epoch = self._get_epoch_from_metrics_file(last_metrics_file)
         if current_epoch is None:
             current_epoch = self._get_max_epoch()
+        target_epoch = current_epoch + 1
+        logger.info("Waiting for consecutive metrics file epoch=%s...", target_epoch)
+        start_time = time.time()
+        target = self.metrics_dir / f"global_state_epoch_{target_epoch}.json"
 
         while time.time() - start_time < timeout:
-            newer_files = []
-            for file_path in self.metrics_dir.glob("global_state_epoch_*.json"):
-                epoch = self._get_epoch_from_metrics_file(file_path)
-                if epoch is None:
-                    continue
-                if epoch > current_epoch:
-                    newer_files.append((epoch, file_path))
-
-            if newer_files:
-                newer_files.sort(key=lambda item: item[0])
-                newest_epoch, newest_file = newer_files[-1]
-                if newest_epoch > current_epoch + 1:
+            if target.exists():
+                latest = self._get_latest_metrics_file()
+                latest_epoch = self._get_epoch_from_metrics_file(latest) if latest else None
+                if latest_epoch is not None and latest_epoch > target_epoch:
                     logger.warning(
-                        "Detected epoch gap: current=%s, newest=%s, skipping missing epochs",
+                        "Detected epoch gap: current=%s, newest=%s, jumping to live epoch",
                         current_epoch,
-                        newest_epoch,
+                        latest_epoch,
                     )
-                return newest_file
+                    return latest
+                return target
             time.sleep(0.1)
         return None
 
@@ -318,15 +317,15 @@ class CMABTrainer:
     def _wait_for_first_available_metrics_file(self, timeout: int) -> Path:
         start = time.time()
         while time.time() - start < timeout:
-            latest = self._get_latest_metrics_file()
-            if latest is not None:
-                epoch = self._get_epoch_from_metrics_file(latest)
+            earliest = self._get_earliest_metrics_file()
+            if earliest is not None:
+                epoch = self._get_epoch_from_metrics_file(earliest)
                 if epoch is not None and epoch > 0:
                     logger.warning(
-                        "First observed global state is epoch %s (epoch 0 missing), continuing with latest-wins",
+                        "First observed global state is epoch %s (epoch 0 missing), starting from earliest",
                         epoch,
                     )
-                return latest
+                return earliest
             time.sleep(0.1)
         raise TimeoutError("Timeout waiting for any global_state_epoch_*.json")
 

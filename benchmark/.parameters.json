@@ -28,7 +28,7 @@
         0,
         0
     ],
-    "epoch_slots": 32,
+    "epoch_slots": 44,
     "fast_path_timeout": 100,
     "gc_depth": 50,
     "header_size": 32,

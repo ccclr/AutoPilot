@@ -9,8 +9,10 @@ with hierarchical residual fits: each main-effect forest is trained on the
 leftover of the previous factor (so intercepts are not counted five times),
 then pair forests fit the remaining residual. Default pair edges are
 (cut, k) and (timeout, k). Cut is one-hot (not treated as ordered 2 < 3 < 4).
-Selection still enumerates the catalog; exploration is factor-wise
-1/sqrt(n+1), not whole-arm counts.
+Selection enumerates the catalog and picks the arm with the highest
+predicted reward. Exploration is the same outer-bootstrap Thompson
+sampling as the global RF: each update refits on a bootstrap of the
+replay window, then select_arm is greedy on that posterior draw.
 """
 
 from __future__ import annotations
@@ -84,7 +86,6 @@ class FactorizedCMABPolicy(CMABPolicy):
         min_epsilon: float = 0,
         replay_window: int = 200,
         action_encoding: str = "numeric",
-        explore_coef: float = 0.15,
         pair_edges: Iterable[tuple[str, str]] | None = None,
         include_batch_header_pair: bool = False,
         max_depth: int = 4,
@@ -108,7 +109,6 @@ class FactorizedCMABPolicy(CMABPolicy):
             # factorized checkpoint cannot be loaded as one_hot by mistake.
             action_encoding="numeric",
         )
-        self.explore_coef = float(explore_coef)
         edges = list(pair_edges) if pair_edges is not None else list(DEFAULT_PAIR_EDGES)
         if include_batch_header_pair:
             edges.append(("batch_size", "header_size"))
@@ -118,9 +118,6 @@ class FactorizedCMABPolicy(CMABPolicy):
         self._min_samples_leaf = int(min_samples_leaf)
         self._factor_catalogs = self._build_factor_catalogs(self._arms)
         self._records: list[dict[str, Any]] = []
-        self._factor_counts: dict[str, dict[int, int]] = {
-            key: {} for key in FACTOR_KEYS
-        }
         self._main: dict[str, RandomForestRegressor] = {
             key: self._new_forest(offset)
             for offset, key in enumerate(FACTOR_KEYS, start=1)
@@ -213,15 +210,6 @@ class FactorizedCMABPolicy(CMABPolicy):
         main_sum, pair_sum, _ = self._predict_components(context, factors)
         return main_sum + pair_sum
 
-    def _exploration_bonus(self, factors: dict[str, int]) -> float:
-        if self.explore_coef <= 0:
-            return 0.0
-        bonus = 0.0
-        for key, value in factors.items():
-            count = self._factor_counts[key].get(int(value), 0)
-            bonus += 1.0 / np.sqrt(count + 1.0)
-        return float(self.explore_coef) * bonus
-
     def _window_arm_counts_from_replay(self):
         window_counts = {arm: 0 for arm in self._arms}
         recent = self._records[-self._replay_window :]
@@ -269,37 +257,29 @@ class FactorizedCMABPolicy(CMABPolicy):
 
         logger.info("INFERENCE_START reward_model=factorized")
         rewards = np.empty(len(self._arms), dtype=np.float64)
-        explores = np.empty(len(self._arms), dtype=np.float64)
         for i, arm in enumerate(self._arms):
-            factors = parse_arm_factors(arm)
             rewards[i] = self._predict_reward(context, arm)
-            explores[i] = self._exploration_bonus(factors)
-        scores = rewards + explores
         logger.info("INFERENCE_DONE")
 
         def _fmt_list(values, idxs):
             return "[" + ", ".join(f"{values[i]:.6f}" for i in idxs) + "]"
 
-        top5_idx = np.argsort(scores)[::-1][:5]
+        top5_idx = np.argsort(rewards)[::-1][:5]
         logger.info("================================================================================")
         logger.info("SELECT ARM - Factorized Prediction Analysis")
         logger.info("Context: %s", np.asarray(context))
-        logger.info("  Scores (top 5 arms): %s", _fmt_list(scores, top5_idx))
-        logger.info("  Rewards (top 5 arms): %s", _fmt_list(rewards, top5_idx))
-        logger.info("  Explore (top 5 arms): %s", _fmt_list(explores, top5_idx))
-        logger.info("Top 5 arms by factorized score:")
+        logger.info("  Mean predictions (top 5 arms): %s", _fmt_list(rewards, top5_idx))
+        logger.info("Top 5 arms by factorized bootstrap-TS mean:")
         for rank, idx in enumerate(top5_idx, start=1):
             logger.info(
-                "  #%d: arm=%s, score=%.6f, reward=%.6f, explore=%.6f",
+                "  #%d: arm=%s, mean=%.6f",
                 rank,
                 self._arms[idx],
-                scores[idx],
                 rewards[idx],
-                explores[idx],
             )
 
-        max_score = scores.max()
-        max_indices = np.flatnonzero(np.isclose(scores, max_score))
+        max_pred = rewards.max()
+        max_indices = np.flatnonzero(np.isclose(rewards, max_pred))
         if len(max_indices) > 1 and shared_seed_hex:
             tie_pick_pos = self._shared_rng_index(len(max_indices), shared_seed_hex, "tie_break")
             chosen_idx = int(max_indices[tie_pick_pos])
@@ -308,16 +288,14 @@ class FactorizedCMABPolicy(CMABPolicy):
         chosen = self._arms[chosen_idx]
 
         topk = min(self._monitor_topk, len(self._arms))
-        topk_idx = np.argsort(scores)[::-1][:topk]
+        topk_idx = np.argsort(rewards)[::-1][:topk]
         topk_arms = [self._arms[i] for i in topk_idx]
-        topk_scores = [float(scores[i]) for i in topk_idx]
-        logger.info("MONITOR_TOP_ARMS k=%d arms=%s scores=%s", topk, topk_arms, topk_scores)
+        topk_mean = [float(rewards[i]) for i in topk_idx]
+        logger.info("MONITOR_TOP_ARMS k=%d arms=%s means=%s", topk, topk_arms, topk_mean)
         logger.info(
-            "✓ SELECTED ARM: %s (factorized_score=%.6f reward=%.6f explore=%.6f)",
+            "✓ SELECTED ARM: %s (mean_prediction=%.6f)",
             chosen,
-            scores[chosen_idx],
-            rewards[chosen_idx],
-            explores[chosen_idx],
+            max_pred,
         )
         logger.info("================================================================================")
         return chosen
@@ -349,9 +327,6 @@ class FactorizedCMABPolicy(CMABPolicy):
             self._y.append(float(reward))
             self.arm_counts[arm] += 1
             self._recent_decisions.append(arm)
-            for key, value in factors.items():
-                bucket = self._factor_counts[key]
-                bucket[int(value)] = bucket.get(int(value), 0) + 1
             logger.info(
                 "TRAIN_SAMPLE idx=%d arm=%s reward=%.6f context=%s factors=%s",
                 len(self._y),
@@ -426,7 +401,6 @@ class FactorizedCMABPolicy(CMABPolicy):
                 "y": self._y,
                 "is_fitted": self._is_fitted,
                 "update_count": self._update_count,
-                "factor_counts": self._factor_counts,
                 "arm_counts": self.arm_counts,
                 "main_models": self._main,
                 "pair_models": {
@@ -434,7 +408,6 @@ class FactorizedCMABPolicy(CMABPolicy):
                     for (left, right), model in self._pair.items()
                 },
                 "pair_edges": list(self._pair_edges),
-                "explore_coef": self.explore_coef,
                 "factor_catalogs": self._factor_catalogs,
             },
             path,
@@ -460,9 +433,6 @@ class FactorizedCMABPolicy(CMABPolicy):
         self._y = list(data.get("y") or [row["reward"] for row in self._records])
         self._is_fitted = bool(data.get("is_fitted"))
         self._update_count = int(data.get("update_count") or 0)
-        self._factor_counts = data.get("factor_counts") or {
-            key: {} for key in FACTOR_KEYS
-        }
         self.arm_counts = data.get("arm_counts") or {
             arm: 0 for arm in self._arms
         }
@@ -474,8 +444,6 @@ class FactorizedCMABPolicy(CMABPolicy):
             if key in loaded_pairs:
                 restored[edge] = loaded_pairs[key]
         self._pair = restored or self._pair
-        if "explore_coef" in data:
-            self.explore_coef = float(data["explore_coef"])
         if data.get("factor_catalogs"):
             self._factor_catalogs = data["factor_catalogs"]
         for record in self._records[-self._replay_window :]:

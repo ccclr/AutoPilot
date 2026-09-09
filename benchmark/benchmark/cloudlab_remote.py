@@ -11,6 +11,7 @@ from os.path import basename, splitext, join
 from time import sleep, time
 from math import ceil
 from copy import deepcopy
+from pathlib import Path
 import subprocess
 
 from benchmark.config import Committee, Key, NodeParameters, BenchParameters, ConfigError
@@ -314,18 +315,15 @@ class CloudLabBench:
 
     def _update(self, hosts, collocate):
         ips = self._flatten_hosts(hosts, collocate)
+        local_src = Path(__file__).resolve().parents[2]
+        repo_dir = f'{self.home}/{self.settings.repo_name}'
 
         Print.info(
-            f'Updating {len(ips)} machines (branch "{self.settings.branch}")...'
+            f'Updating {len(ips)} machines from local tree {local_src} '
+            f'(skip git reset so uncommitted experiment patches deploy)...'
         )
 
-        repo_dir = f'{self.home}/{self.settings.repo_name}'
-        branch = self.settings.branch
         cmd = [
-            # Fetch into origin/<branch>, not the checked-out local branch.
-            f'(cd {repo_dir} && git fetch origin {branch})',
-            f'(cd {repo_dir} && git checkout -fB {branch} origin/{branch})',
-            f'(cd {repo_dir} && git reset --hard origin/{branch})',
             f'export CARGO_HOME={self.home}/.cargo RUSTUP_HOME={self.home}/.rustup',
             f'source {self.home}/.cargo/env',
             f'(cd {repo_dir} && {CommandMaker.compile()})',
@@ -333,6 +331,18 @@ class CloudLabBench:
         ]
 
         g = Group(*ips, user=self.settings.username, connect_kwargs=self.connect)
+        exclude = (
+            "--exclude target --exclude .git --exclude results --exclude logs "
+            "--exclude '*.pyc' --exclude __pycache__ --exclude .cursor"
+        )
+        for ip in ips:
+            c = Connection(ip, user=self.settings.username, connect_kwargs=self.connect)
+            c.run(f'mkdir -p {repo_dir}', hide=True)
+            subprocess.run(
+                f'rsync -az {exclude} {local_src}/ {self.settings.username}@{ip}:{repo_dir}/',
+                shell=True,
+                check=True,
+            )
         g.run(' && '.join(cmd), hide=True)
 
     def _config(self, hosts, node_parameters, bench_parameters):

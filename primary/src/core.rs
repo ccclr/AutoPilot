@@ -2759,17 +2759,16 @@ impl Core {
                         self.apply_pending_parameters(target_epoch).await;
                     } else if let Some(pos_in_epoch) = self.epoch_slot_index(*slot) {
                         let current_epoch = self.epoch_index_for_slot(*slot);
-                        if pos_in_epoch == self.applied_begin && current_epoch == target_epoch
+                        // First commit at or past applied_begin in the target epoch.
+                        // Exact equality misses k-parallel out-of-order commits.
+                        if pos_in_epoch >= self.applied_begin && current_epoch == target_epoch
                         {
                             info!(
-                                "✅ Applying parameter update after slot {} committed (epoch {})",
-                                self.applied_begin, target_epoch
+                                "✅ Applying parameter update after slot {} committed (epoch {}, pos={})",
+                                *slot, target_epoch, pos_in_epoch
                             );
                             self.apply_pending_parameters(target_epoch).await;
-                        } else if current_epoch > target_epoch
-                            || (current_epoch == target_epoch
-                                && pos_in_epoch > self.applied_begin)
-                        {
+                        } else if current_epoch > target_epoch {
                             self.drop_param_update(target_epoch, *slot);
                         }
                     }
@@ -4180,7 +4179,18 @@ impl Core {
         }
 
         if signal_epoch < current_epoch {
-            self.drop_param_update(signal_epoch, last_slot);
+            // Late relative to the signaled epoch: still install now so the
+            // replica does not keep stale parameters. Credit apply_ok to the
+            // signaled epoch so the dump that measures it can report success
+            // if it has not been written yet.
+            info!(
+                "⚠️  Late parameter signal for epoch {} (current epoch {}), applying immediately",
+                signal_epoch, current_epoch
+            );
+            self.pending_param_update_epoch = Some(signal_epoch);
+            self.capture_pending_parameters();
+            self.apply_pending_parameters(signal_epoch).await;
+            self.rl_param_signal_epoch = current_epoch.saturating_add(1);
             return Ok(());
         }
 
@@ -4197,7 +4207,13 @@ impl Core {
 
         if let Some(pos_in_epoch) = self.epoch_slot_index(last_slot) {
             if pos_in_epoch >= self.applied_begin {
-                self.drop_param_update(signal_epoch, last_slot);
+                self.pending_param_update_epoch = Some(signal_epoch);
+                self.capture_pending_parameters();
+                info!(
+                    "✅ Parameter update applying immediately: pos {} >= applied_begin {} in epoch {}",
+                    pos_in_epoch, self.applied_begin, signal_epoch
+                );
+                self.apply_pending_parameters(signal_epoch).await;
             } else {
                 self.pending_param_update_epoch = Some(signal_epoch);
                 self.capture_pending_parameters();

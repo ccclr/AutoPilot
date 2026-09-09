@@ -124,6 +124,51 @@ class CMABActionEncodingTests(unittest.TestCase):
         self.assertFalse(CMABTrainer._param_apply_ok_from_payload({}))
         self.assertFalse(CMABTrainer._param_apply_ok_from_payload({"param_apply_ok": 1}))
 
+    def test_wait_returns_consecutive_epoch_not_latest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics = Path(tmp)
+            (metrics / "global_state_epoch_3.json").write_text("{}")
+            (metrics / "global_state_epoch_4.json").write_text("{}")
+            (metrics / "global_state_epoch_9.json").write_text("{}")
+            trainer = CMABTrainer(
+                metrics_dir=str(metrics),
+                parameters_file=str(metrics / "params.json"),
+                checkpoint_dir=str(metrics / "ckpt"),
+                policy=None,
+                context_builder=None,
+                arm_catalog=None,
+                metrics_timeout=1,
+            )
+            # Target epoch 4 exists, but a later file also exists: jump to live.
+            jumped = trainer._wait_for_new_metrics_file(
+                metrics / "global_state_epoch_3.json",
+                timeout=1,
+            )
+            self.assertEqual(jumped.name, "global_state_epoch_9.json")
+
+            (metrics / "global_state_epoch_9.json").unlink()
+            consecutive = trainer._wait_for_new_metrics_file(
+                metrics / "global_state_epoch_3.json",
+                timeout=1,
+            )
+            self.assertEqual(consecutive.name, "global_state_epoch_4.json")
+
+    def test_first_metrics_file_is_earliest_epoch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics = Path(tmp)
+            (metrics / "global_state_epoch_7.json").write_text("{}")
+            (metrics / "global_state_epoch_2.json").write_text("{}")
+            trainer = CMABTrainer(
+                metrics_dir=str(metrics),
+                parameters_file=str(metrics / "params.json"),
+                checkpoint_dir=str(metrics / "ckpt"),
+                policy=None,
+                context_builder=None,
+                arm_catalog=None,
+            )
+            earliest = trainer._get_earliest_metrics_file()
+            self.assertEqual(earliest.name, "global_state_epoch_2.json")
+
 
 if __name__ == "__main__":
     unittest.main()

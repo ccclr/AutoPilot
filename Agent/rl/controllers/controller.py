@@ -244,6 +244,7 @@ class AutopilotController:
                     ["--action-encoding", str(self.cmab_action_encoding)]
                 )
             cmd.extend(["--seed", str(self.cmab_seed)])
+            cmd.extend(["--num-iterations", "2500"])
             if self.resume_from:
                 cmd.extend(["--resume-from", str(self.resume_from)])
 
